@@ -9,7 +9,8 @@ SRCDIR = src
 OBJDIR = obj
 BINDIR = bin
 
-KERNEL_SRCS = arch/x86_64/boot.s kernel/kernel.c lib/stdio.c lib/string.c
+# Find all source files automatically
+KERNEL_SRCS = $(shell find . -name '*.c' -o -name '*.s' | grep -v 'iso\|bin\|obj')
 KERNEL_OBJS = $(patsubst %.s,$(OBJDIR)/%.o,$(patsubst %.c,$(OBJDIR)/%.o,$(KERNEL_SRCS)))
 
 KERNEL_BIN = $(BINDIR)/caneos.bin
