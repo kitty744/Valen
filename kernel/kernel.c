@@ -7,6 +7,9 @@
 #include <cane/vmm.h>
 #include <cane/heap.h>
 #include <cane/shell.h>
+#include <cane/keyboard.h>
+ 
+int system_ready = 0;
  
 #define KERNEL_VIRT_OFFSET 0xFFFFFFFF80000000ULL
 #define PHYS_TO_VIRT(p) ((void *)((uint64_t)(p) + KERNEL_VIRT_OFFSET))
@@ -80,8 +83,14 @@ void kmain(unsigned long magic, unsigned long addr)
  
     vmm_init();
     heap_init();
-
     shell_init();
+    keyboard_init();
+    
+    /* Mark system as ready for keyboard input */
+    system_ready = 1;
+    
+    /* Enable CPU interrupts */
+    asm volatile ("sti");
 
     while (1) {
         asm volatile ("hlt");

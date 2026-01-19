@@ -132,6 +132,7 @@ cane/
 - Automated memory management initialization
 - Multiboot2 memory parsing
 - Interrupt handling system
+- Command-line shell
 
 ### 🔄 In Progress
 
@@ -141,7 +142,6 @@ cane/
 ### 📋 Planned
 
 - Comprehensive hardware drivers
-- Command-line shell
 - Retro GUI system
 - User applications
 - Advanced networking stack

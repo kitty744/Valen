@@ -1,11 +1,6 @@
 /**
  * @file shell.c
  * @brief CaneOS Interactive Shell
- * 
- * Provides a command-line interface for system interaction. This module
- * manages a local input buffer, handles character insertion/deletion,
- * and interfaces with VGA driver to provide a flicker-free experience
- * through hardware cursor masking and coordinate math.
  */
 
 #include <cane/shell.h>
@@ -13,41 +8,18 @@
 #include <cane/string.h>
 #include <cane/io.h>
 #include <cane/pmm.h>
-#include <cane/spinlock.h>
+
+#define MAX_BUFFER 256
+#define PROMPT ">> "
+#define PROMPT_LEN 3
 
 static char input_buffer[MAX_BUFFER];
 static int buffer_len = 0;
 static int cursor_idx = 0;
 static int prompt_start_y = 1;
-static spinlock_t shell_lock = SPINLOCK_INIT;
 
 /**
- * @brief Disables hardware cursor rendering.
- * 
- * Communicates with CRT Controller (CRTC) registers. Setting bit 5
- * of Cursor Start Register (0x0A) instructs VGA hardware to
- * stop rendering blinking cursor.
- */
-static void hide_hardware_cursor(void)
-{
-    outb(0x3D4, 0x0A);
-    outb(0x3D5, inb(0x3D5) | 0x20);
-}
-
-/**
- * @brief Enables hardware cursor rendering.
- * 
- * Clears bit 5 of Cursor Start Register (0x0A) to allow
- * VGA hardware to render blinking cursor at current register position.
- */
-static void show_hardware_cursor(void)
-{
-    outb(0x3D4, 0x0A);
-    outb(0x3D5, inb(0x3D5) & ~0x20);
-}
-
-/**
- * @brief Gets current cursor X position.
+ * @brief Get current cursor X position.
  */
 static int get_cursor_x(void)
 {
@@ -60,7 +32,7 @@ static int get_cursor_x(void)
 }
 
 /**
- * @brief Gets current cursor Y position.
+ * @brief Get current cursor Y position.
  */
 static int get_cursor_y(void)
 {
@@ -73,7 +45,7 @@ static int get_cursor_y(void)
 }
 
 /**
- * @brief Sets cursor to specific position.
+ * @brief Set cursor to specific position.
  */
 static void set_cursor_pos(int x, int y)
 {
@@ -85,16 +57,28 @@ static void set_cursor_pos(int x, int y)
 }
 
 /**
+ * @brief Disables hardware cursor rendering.
+ */
+static void hide_hardware_cursor(void)
+{
+    outb(0x3D4, 0x0A);
+    outb(0x3D5, inb(0x3D5) | 0x20);
+}
+
+/**
+ * @brief Enables hardware cursor rendering.
+ */
+static void show_hardware_cursor(void)
+{
+    outb(0x3D4, 0x0A);
+    outb(0x3D5, inb(0x3D5) & ~0x20);
+}
+
+/**
  * @brief Resets shell state and initializes prompt.
- * 
- * Clears internal input buffer, resets logical cursor index,
- * and establishes vertical anchor (prompt_start_y) for current
- * command line.
  */
 void shell_init(void)
 {
-    spinlock_acquire(&shell_lock);
-    
     memset(input_buffer, 0, MAX_BUFFER);
     buffer_len = 0;
     cursor_idx = 0;
@@ -112,51 +96,38 @@ void shell_init(void)
     int final_y = prompt_start_y + (final_total / 80);
     set_cursor_pos(final_x, final_y);
     show_hardware_cursor();
-
-    spinlock_release(&shell_lock);
 }
 
 /**
  * @brief Redraws the command line while preventing cursor ghosting.
- * 
- * This function masks hardware cursor during printing process.
- * It calculates absolute VGA coordinates based on prompt length
- * and current buffer index to handle line-wrapping across 80 columns.
  */
 static void redraw_line(void)
 {
-    /* Calculate final landing spot for hardware cursor after redraw */
+    /* Move cursor to start of input area */
+    set_cursor_pos(PROMPT_LEN, prompt_start_y);
+    
+    /* Clear the current line */
+    for (int i = 0; i < MAX_BUFFER; i++) {
+        putchar(' ');
+    }
+    
+    /* Move back to start */
+    set_cursor_pos(PROMPT_LEN, prompt_start_y);
+    
+    /* Print the buffer */
+    for (int i = 0; i < buffer_len; i++) {
+        putchar(input_buffer[i]);
+    }
+    
+    /* Position cursor at current position */
     int final_total = PROMPT_LEN + cursor_idx;
     int final_x = final_total % 80;
     int final_y = prompt_start_y + (final_total / 80);
-
-    /* Temporarily hide cursor to prevent "ghosting" during putchar calls */
-    hide_hardware_cursor();
-
-    /* Reset software cursor to start of current input line */
-    set_cursor_pos(PROMPT_LEN, prompt_start_y);
-
-    /* Overwrite current screen line(s) with the updated buffer */
-    for (int i = 0; i < buffer_len; i++)
-    {
-        putchar(input_buffer[i]);
-    }
-
-    /* Print a trailing space to erase characters left over by backspaces */
-    putchar(' ');
-
-    /* Synchronize VGA cursor registers with the final calculated position */
     set_cursor_pos(final_x, final_y);
-
-    /* Restore hardware cursor visibility at the final destination */
-    show_hardware_cursor();
 }
 
 /**
  * @brief Logic for interpreting and executing shell commands.
- * 
- * Compares input buffer against known commands and dispatches
- * to appropriate kernel subsystems with formatted output.
  */
 static void process_command(char *cmd)
 {
@@ -209,16 +180,21 @@ static void process_command(char *cmd)
  */
 void shell_input(signed char c)
 {
-    spinlock_acquire(&shell_lock);
+    /* Debug: show what we received */
+    if (c >= 32 && c <= 126) {
+        printf("[%c]", c);
+    } else {
+        printf("{%d}", c);
+    }
     
-    if (c == KEY_ENTER)
+    if (c == '\n')
     {
         input_buffer[buffer_len] = '\0';
         printf("\n");
         process_command(input_buffer);
         shell_init();
     }
-    else if (c == KEY_BACKSPACE && cursor_idx > 0)
+    else if (c == '\b' && cursor_idx > 0)
     {
         for (int i = cursor_idx - 1; i < buffer_len - 1; i++)
         {
@@ -228,12 +204,12 @@ void shell_input(signed char c)
         cursor_idx--;
         redraw_line();
     }
-    else if (c == KEY_ARROW_LEFT && cursor_idx > 0)
+    else if (c == -1 && cursor_idx > 0)
     {
         cursor_idx--;
         redraw_line();
     }
-    else if (c == KEY_ARROW_RIGHT && cursor_idx < buffer_len)
+    else if (c == -2 && cursor_idx < buffer_len)
     {
         cursor_idx++;
         redraw_line();
@@ -249,6 +225,4 @@ void shell_input(signed char c)
         cursor_idx++;
         redraw_line();
     }
-    
-    spinlock_release(&shell_lock);
 }

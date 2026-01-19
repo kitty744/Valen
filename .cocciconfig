@@ -1,0 +1,8 @@
+[spatch]
+    options = --use-gitgrep
+    options = --timeout 200
+    options = --jobs 4
+    options = --include-headers
+    options = -I include/
+    options = --macro-file scripts/cocci/cocci_macros.h
+    options = --all-includes

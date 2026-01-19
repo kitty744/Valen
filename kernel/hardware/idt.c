@@ -1,6 +1,6 @@
 /**
  * @file idt.c
- * @brief Interrupt Descriptor Table (IDT) Management for NexusOS.
+ * @brief Interrupt Descriptor Table (IDT) Management for CaneOS.
  *
  * This module initializes the IDT, which is the mechanism the x86_64 CPU uses
  * to handle exceptions and hardware interrupts. It maps assembly-level
@@ -9,6 +9,7 @@
 
 #include <cane/idt.h>
 #include <cane/pic.h>
+#include <cane/keyboard.h>
 
 /* --- Global IDT Structures --- */
 
@@ -21,11 +22,21 @@ struct idt_ptr idtp;
 /* --- External Assembly Stubs --- */
 
 extern void page_fault_isr();
+extern void keyboard_isr();
+extern void generic_isr();
 extern void load_idt(struct idt_ptr *ptr);
+
+/* --- Generic Handler --- */
+
+void generic_handler(void)
+{
+    /* Generic interrupt handler - just send EOI and return */
+    pic_send_eoi(0);
+}
 
 /**
  * @brief Configures an individual IDT gate.
- * * @param vector The interrupt vector index (0-255).
+ * @param vector The interrupt vector index (0-255).
  * @param isr    Pointer to the assembly ISR stub.
  * @param flags  Descriptor attributes (typically 0x8E for a 64-bit Interrupt Gate).
  */
@@ -44,23 +55,33 @@ void idt_set_descriptor(uint8_t vector, void *isr, uint8_t flags)
 
 /**
  * @brief Initializes the IDT and prepares the CPU for interrupt handling.
- * * This function performs the following steps:
- * 1. Disables the legacy 8259 PIC to favor the modern APIC.
- * 2. Populates all 256 entries with a default safety handler.
- * 3. Registers specific CPU exceptions (e.g., Page Faults).
- * 4. Registers hardware IRQ stubs (Timer, Keyboard, Mouse).
- * 5. Loads the IDT pointer into the CPU's IDTR register.
+ * This function performs the following steps:
+ * 1. Initialize PIC and remap interrupts
+ * 2. Initialize all vectors with a default generic handler
+ * 3. Register specific CPU exceptions (e.g., Page Faults)
+ * 4. Register hardware IRQ stubs (Timer, Keyboard, Mouse)
+ * 5. Load the IDT pointer into the CPU's IDTR register
  */
 void idt_init()
 {
     /* 1. Initialize PIC and remap interrupts */
     pic_init();
 
-    /* 2. Register CPU Exceptions (Vectors 0-31) */
+    /* 2. Initialize all vectors with a default generic handler to prevent triple faults */
+    for (int i = 0; i < 256; i++)
+    {
+        idt_set_descriptor(i, generic_isr, 0x8E);
+    }
+
+    /* 3. Register CPU Exceptions (Vectors 0-31) */
     /* Vector 14: Page Fault - Critical for Virtual Memory Management */
     idt_set_descriptor(14, page_fault_isr, 0x8E);
 
-    /* 3. Configure IDT Pointer and load into CPU register */
+    /* 4. Register Hardware IRQs */
+    /* IRQ 1: Keyboard - Vector 0x21 (0x20 + 1) */
+    idt_set_descriptor(33, keyboard_isr, 0x8E);
+
+    /* 5. Configure IDT Pointer and load into CPU register */
     idtp.limit = (sizeof(struct idt_entry) * 256) - 1;
     idtp.base = (uint64_t)&idt;
 

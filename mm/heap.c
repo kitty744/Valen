@@ -112,14 +112,7 @@ void free(void *ptr)
             temp->next = temp->next->next;
             continue;
         }
-        
-        if (temp->next && temp->next->free && temp->free)
-        {
-            temp->size += sizeof(heap_node_t) + temp->next->size;
-            temp->next = temp->next->next;
-            continue;
-        }
-        
+                
         temp = temp->next;
     }
     
