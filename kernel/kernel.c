@@ -74,13 +74,6 @@ void kmain(unsigned long magic, unsigned long addr)
  
     vmm_init();
     kheap_init();
- 
-    uint64_t detected_memory = max_physical_addr;
-    printf("Detected Memory: %llu MB\n", detected_memory / (1024 * 1024));
- 
- 
-    printf("\nCaneOS System Ready!\n");
-    printf("All systems operational\n");
 
     uint64_t total = pmm_get_total_kb();
     uint64_t used = pmm_get_used_kb();

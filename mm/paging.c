@@ -48,7 +48,6 @@ void paging_init()
     uint64_t phys_pml4 = (uint64_t)kernel_pml4 - KERNEL_VIRT_OFFSET;
 
     asm volatile("mov %0, %%cr3" : : "r"(phys_pml4));
-    printf("PAGING: Paging structures active (CR3 reloaded with physical address).\n");
 }
 
 /**
