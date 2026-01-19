@@ -109,29 +109,12 @@ make all
 
 ```
 cane/
-├── arch/x86_64/          # Architecture-specific code
-│   └── boot.s           # Multiboot2 bootloader and setup
-├── kernel/               # Core kernel implementation
-│   └── kernel.c         # Main kernel entry point
-├── mm/                   # Memory management
-│   ├── pmm.c           # Physical memory manager
-│   ├── vmm.c           # Virtual memory manager
-│   ├── heap.c          # Kernel heap allocator
-│   ├── paging.c        # Low-level paging utilities
-│   ├── memory.c        # Memory management coordinator
-│   └── multiboot.c     # Multiboot2 parser
-├── lib/                  # Standard library
-│   ├── stdio.c         # Enhanced I/O and printf
-│   └── string.c        # String utilities
-├── include/cane/         # Public headers
-│   ├── kernel.h        # Kernel interface
-│   ├── memory.h        # Memory management API
-│   ├── stdio.h         # Standard I/O functions
-│   ├── paging.h        # Paging constants and types
-│   ├── multiboot.h     # Multiboot2 structures
-│   └── ...             # Other headers
-├── scripts/              # Build and utility scripts
-│   └── run.sh          # Build and launch script
+├── arch/x86_64/         # Architecture-specific code
+├── kernel/              # Core kernel implementation
+├── mm/                  # Memory management
+├── lib/                 # Standard library
+├── include/cane/        # Public headers
+├── scripts/             # Build and utility scripts
 ├── Makefile             # Wildcard-based build system
 ├── linker.ld            # Kernel memory layout
 ├── .gitignore           # Version control exclusions
