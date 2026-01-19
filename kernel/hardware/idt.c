@@ -8,6 +8,7 @@
  */
 
 #include <cane/idt.h>
+#include <cane/pic.h>
 
 /* --- Global IDT Structures --- */
 
@@ -52,12 +53,14 @@ void idt_set_descriptor(uint8_t vector, void *isr, uint8_t flags)
  */
 void idt_init()
 {
+    /* 1. Initialize PIC and remap interrupts */
+    pic_init();
 
-    /* 3. Register CPU Exceptions (Vectors 0-31) */
+    /* 2. Register CPU Exceptions (Vectors 0-31) */
     /* Vector 14: Page Fault - Critical for Virtual Memory Management */
     idt_set_descriptor(14, page_fault_isr, 0x8E);
 
-    /* 6. Configure IDT Pointer and load into CPU register */
+    /* 3. Configure IDT Pointer and load into CPU register */
     idtp.limit = (sizeof(struct idt_entry) * 256) - 1;
     idtp.base = (uint64_t)&idt;
 

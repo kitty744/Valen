@@ -131,11 +131,10 @@ cane/
 - Enhanced printf with extensive formatting options
 - Automated memory management initialization
 - Multiboot2 memory parsing
-- Clean, production-ready codebase
+- Interrupt handling system
 
 ### 🔄 In Progress
 
-- Interrupt handling system
 - Process management and multitasking
 - Driver framework initialization
 
