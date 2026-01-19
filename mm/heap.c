@@ -2,6 +2,7 @@
 #include <cane/vmm.h>
 #include <cane/pmm.h>
 #include <cane/stdio.h>
+#include <cane/spinlock.h>
 
 #define HEAP_MAGIC 0x12345678
 
@@ -14,6 +15,7 @@ typedef struct heap_node
 } heap_node_t;
 
 static heap_node_t *head = NULL;
+static spinlock_t heap_lock = SPINLOCK_INIT;
 
 void heap_init()
 {
@@ -35,6 +37,8 @@ void *malloc(uint64_t size)
     if (size == 0)
         return 0;
         
+    spinlock_acquire(&heap_lock);
+    
     size = (size + 7) & ~7;
     heap_node_t *curr = head;
 
@@ -55,6 +59,7 @@ void *malloc(uint64_t size)
             }
             curr->free = 0;
 
+            spinlock_release(&heap_lock);
             return (void *)((uint8_t *)curr + sizeof(heap_node_t));
         }
 
@@ -63,6 +68,7 @@ void *malloc(uint64_t size)
             void *new_virt = vmm_alloc(4096, 0x03);
             if (!new_virt)
             {
+                spinlock_release(&heap_lock);
                 return 0;
             }
 
@@ -76,6 +82,7 @@ void *malloc(uint64_t size)
         curr = curr->next;
     }
 
+    spinlock_release(&heap_lock);
     return 0;
 }
 
@@ -84,10 +91,13 @@ void free(void *ptr)
     if (!ptr)
         return;
 
+    spinlock_acquire(&heap_lock);
+    
     heap_node_t *node = (heap_node_t *)((uint8_t *)ptr - sizeof(heap_node_t));
 
     if (node->magic != HEAP_MAGIC)
     {
+        spinlock_release(&heap_lock);
         return;
     }
 
@@ -112,4 +122,6 @@ void free(void *ptr)
         
         temp = temp->next;
     }
+    
+    spinlock_release(&heap_lock);
 }
