@@ -6,6 +6,7 @@
 #include <cane/pmm.h>
 #include <cane/vmm.h>
 #include <cane/heap.h>
+#include <cane/shell.h>
  
 #define KERNEL_VIRT_OFFSET 0xFFFFFFFF80000000ULL
 #define PHYS_TO_VIRT(p) ((void *)((uint64_t)(p) + KERNEL_VIRT_OFFSET))
@@ -80,21 +81,7 @@ void kmain(unsigned long magic, unsigned long addr)
     vmm_init();
     heap_init();
 
-    uint64_t total = pmm_get_total_kb();
-    uint64_t used = pmm_get_used_kb();
-    uint64_t free = total - used;
-
-    printf("\n--- Physical Memory Mapping ---\n");
-    printf("  Total: ");
-    printf("%llu", total / 1024);
-    printf(" MB\n");
-    printf("  Used:  ");
-    printf("%llu", used / 1024);
-    printf(" MB\n");
-    printf("  Free:  ");
-    printf("%llu", free / 1024);
-    printf(" MB\n");
-    printf("-------------------------------\n");
+    shell_init();
 
     while (1) {
         asm volatile ("hlt");
