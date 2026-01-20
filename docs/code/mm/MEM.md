@@ -12,10 +12,12 @@ CaneOS uses a three-tier memory management system: Physical Memory Manager (PMM)
 #include <cane/pmm.h>
 #include <cane/vmm.h>
 #include <cane/heap.h>
+#include <cane/paging.h>
 
 void kernel_main(void) {
     // Initialize memory management
     pmm_init(bitmap_addr, memory_size);
+    paging_init();
     vmm_init();
     heap_init();
 
@@ -377,6 +379,7 @@ void robust_memory_allocation(void) {
 #include <cane/pmm.h>
 #include <cane/vmm.h>
 #include <cane/heap.h>
+#include <cane/paging.h>
 
 void init_memory_subsystem(void) {
     // Initialize PMM with memory map from bootloader
@@ -385,6 +388,9 @@ void init_memory_subsystem(void) {
     uintptr_t bitmap_phys = (kernel_phys_end + 0x1000) & ~0xFFFULL;
 
     pmm_init((uintptr_t)PHYS_TO_VIRT(bitmap_phys), max_physical_addr);
+
+    // Initialize paging system
+    paging_init();
 
     // Initialize VMM
     vmm_init();
