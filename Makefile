@@ -16,6 +16,8 @@ KERNEL_OBJS = $(patsubst %.s,$(OBJDIR)/%.o,$(patsubst %.c,$(OBJDIR)/%.o,$(KERNEL
 KERNEL_BIN = $(BINDIR)/caneos.bin
 KERNEL_ISO = $(BINDIR)/caneos.iso
 
+-include .config
+
 all: $(KERNEL_ISO)
 
 $(KERNEL_ISO): $(KERNEL_BIN)
@@ -41,9 +43,13 @@ $(OBJDIR)/%.o: %.s
 	mkdir -p $(dir $@)
 	$(AS) -f elf32 $(ASFLAGS) -o $@ $<
 
-run:
-	chmod +x ./scripts/run.sh
+export $(shell [ -f .config ] && sed 's/=.*//' .config)
+
+run: all
+	@chmod +x ./scripts/run.sh
 	./scripts/run.sh
+menuconfig:
+	kconfig-mconf Kconfig
 clean:
 	rm -rf $(OBJDIR) $(BINDIR) isofiles
 

@@ -54,14 +54,54 @@ CaneOS is a complete operating system designed to run on both old and new hardwa
 
 ```bash
 # Ubuntu/Debian
-sudo apt install gcc-x86-64-elf-binutils nasm grub-common qemu-system-x86
+sudo apt install gcc-x86-64-elf-binutils nasm grub-common qemu-system-x86 kconfiglib
 
 # Arch Linux
-sudo pacman -S gcc-x86_64-elf nasm grub qemu
+sudo pacman -S gcc-x86_64-elf nasm grub qemu kconfig
 
 # macOS (with Homebrew)
-brew install x86_64-elf-gcc nasm grub qemu
+brew install x86_64-elf-gcc nasm grub qemu kconfig
 ```
+
+## Configuration
+
+CaneOS uses Kconfig for kernel configuration management, similar to the Linux kernel.
+
+### `make menuconfig`
+
+Launch the interactive configuration menu to customize kernel settings:
+
+```bash
+make menuconfig
+```
+
+**Available Configuration Options:**
+
+#### General Settings
+
+- **Memory Size** - Set QEMU memory allocation (default: 15G)
+- **CPU Core Count** - Number of CPU cores (default: 16)
+- **QEMU Machine Type** - Machine emulation type (default: q35)
+
+#### Graphics and Output
+
+- **Standard VGA Support** - Enable VGA graphics (default: enabled)
+- **Serial to Stdio** - Redirect serial output to terminal (default: enabled)
+
+#### Audio Drivers
+
+- **Enable Sound Hardware** - Enable audio support (default: disabled)
+
+**Configuration File:**
+
+- Settings are saved to `.config` in the project root
+- The configuration is automatically used when building
+
+**Usage Workflow:**
+
+1. Run `make menuconfig` to configure your kernel
+2. Save the configuration
+3. Run `make run` to build and test with your settings
 
 ## Building and Running
 
@@ -100,8 +140,23 @@ make clean
 ### Quick Start
 
 ```bash
-# Build and run with default settings
+# 1. Configure kernel settings (optional)
+make menuconfig
+
+# 2. Build and run with configured settings
 make run
+
+# 3. Or build and run with custom QEMU settings (overrides .config)
+make run-custom -m 8G -smp 4 -soundhw pcspk
+
+# 4. Or run the script directly with arguments
+./scripts/run.sh -m 4G -audiodev none
+
+# 5. Build only (no QEMU)
+make all
+
+# 6. Clean build artifacts
+make clean
 ```
 
 ### Build Process
