@@ -30,11 +30,12 @@ If any output is produced, fix the flagged lines before committing.
 
 ## 4. Development Workflow
 
-1.  **Fork** the repository.
-2.  **Create a branch** for your feature (e.g., `git checkout -b feature/driver-x`).
-3.  **Write tests** if applicable.
-4.  **Run the analysis** (`make coccinelle`).
-5.  **Submit a Pull Request** with a detailed description of your changes.
+1.  **Read** the documentation.
+2.  **Fork** the repository.
+3.  **Create a branch** for your feature (e.g., `git checkout -b feature/driver-x`).
+4.  **Write tests** if applicable.
+5.  **Run the analysis** (`make coccinelle`).
+6.  **Submit a Pull Request** with a detailed description of your changes.
 
 ## 5. Panic and Debugging
 
