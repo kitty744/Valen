@@ -44,12 +44,13 @@ $(OBJDIR)/%.o: %.s
 	$(AS) -f elf32 $(ASFLAGS) -o $@ $<
 
 export $(shell [ -f .config ] && sed 's/=.*//' .config)
+KCONFIG_MCONF := $(shell which kconfig-mconf || which mconf || echo kconfig-mconf)
 
 run: all
 	@chmod +x ./scripts/run.sh
 	./scripts/run.sh
 menuconfig:
-	kconfig-mconf Kconfig
+	$(KCONFIG_MCONF) Kconfig
 clean:
 	rm -rf $(OBJDIR) $(BINDIR) isofiles
 
