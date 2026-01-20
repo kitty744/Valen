@@ -6,4 +6,3 @@ statement S;
 
 p = malloc(...);
 ... when != (p == NULL || p != NULL)
-*p->... // Highlighting usage of p without a NULL check
