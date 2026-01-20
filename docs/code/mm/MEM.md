@@ -4,7 +4,7 @@ The Memory Management system provides physical memory allocation, virtual memory
 
 ## Overview
 
-CaneOS uses a three-tier memory management system: Physical Memory Manager (PMM) for tracking physical pages, Virtual Memory Manager (VMM) for address translation, and a kernel heap for dynamic allocation.
+CaneOS uses a four-tier memory management system: Physical Memory Manager (PMM) for tracking physical pages, Paging system for hardware page table management, Virtual Memory Manager (VMM) for address translation, and a kernel heap for dynamic allocation.
 
 ## Quick Start
 
@@ -117,6 +117,120 @@ static spinlock_t pmm_lock = SPINLOCK_INIT;
 - Never allocates pages below 2MB (reserved for kernel/BIOS)
 - Thread-safe with spinlock protection
 - All addresses are physical addresses
+
+## Paging System
+
+### Overview
+
+The paging system provides low-level hardware page table management for x86_64. It handles the 4-level paging hierarchy (PML4, PDPT, PD, PT) and manages the translation from virtual to physical addresses.
+
+### Page Flags
+
+```c
+#define PAGE_PRESENT (1ULL << 0)  // Page is present
+#define PAGE_WRITE   (1ULL << 1)  // Page is writable
+#define PAGE_USER    (1ULL << 2)  // Accessible from user mode
+#define PAGE_PWT     (1ULL << 3)  // Page Write-Through
+#define PAGE_PCD     (1ULL << 4)  // Page-level Cache Disable
+#define PAGE_HUGE    (1ULL << 7)  // 2MB/1GB pages
+```
+
+### Paging Operations
+
+```c
+void paging_init(void);
+void paging_map(uint64_t virt, uint64_t phys, uint64_t flags);
+void paging_map_range(uint64_t virt, uint64_t phys, uint64_t size, uint64_t flags);
+void paging_map_page(uint64_t virt, uint64_t phys, uint64_t flags);
+```
+
+### Initialization
+
+```c
+void paging_init(void);
+```
+
+Initializes the paging system by loading the PML4 table into CR3. This must be called after the page tables are set up by the bootloader.
+
+**Example:**
+
+```c
+// Called during kernel initialization
+paging_init();
+```
+
+### Page Mapping
+
+```c
+void paging_map(uint64_t virt, uint64_t phys, uint64_t flags);
+```
+
+Maps a single 4KB virtual page to a physical address. Automatically creates the necessary page table hierarchy.
+
+**Parameters:**
+
+- `virt` - Virtual address to map
+- `phys` - Physical address to map to
+- `flags` - Page protection flags
+
+**Example:**
+
+```c
+// Map a virtual page to physical memory
+paging_map(0x1000000, physical_addr, PAGE_PRESENT | PAGE_WRITE);
+```
+
+### Range Mapping
+
+```c
+void paging_map_range(uint64_t virt, uint64_t phys, uint64_t size, uint64_t flags);
+```
+
+Maps a contiguous range of memory by iterating through pages.
+
+**Example:**
+
+```c
+// Map 64KB of memory
+paging_map_range(0x2000000, physical_addr, 0x10000, PAGE_PRESENT | PAGE_WRITE);
+```
+
+### Paging Implementation Details
+
+The paging system uses the standard x86_64 4-level page table hierarchy:
+
+```c
+// Page table indices for address translation
+uint64_t pml4_idx = (virt >> 39) & 0x1FF;  // Level 4
+uint64_t pdpt_idx = (virt >> 30) & 0x1FF;  // Page Directory Pointer Table
+uint64_t pd_idx  = (virt >> 21) & 0x1FF;  // Page Directory
+uint64_t pt_idx  = (virt >> 12) & 0x1FF;  // Page Table
+```
+
+**Features:**
+
+- Automatic page table allocation
+- Thread-safe with spinlock protection
+- Automatic TLB invalidation
+- Higher-half virtual address support
+
+**Virtual Address Offset:**
+
+```c
+#define KERNEL_VIRT_OFFSET 0xFFFFFFFF80000000
+#define PHYS_TO_VIRT(phys) ((void *)((uint64_t)(phys) + KERNEL_VIRT_OFFSET))
+```
+
+### Page Table Hierarchy
+
+The paging system automatically creates the 4-level page table structure:
+
+1. **PML4 (Page Map Level 4)** - Top level table
+2. **PDPT (Page Directory Pointer Table)** - Second level
+3. **PD (Page Directory)** - Third level
+4. **PT (Page Table)** - Fourth level, maps to physical pages
+
+Each level is created on-demand when mapping pages.
 
 ## Virtual Memory Manager (VMM)
 
