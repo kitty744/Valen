@@ -68,10 +68,14 @@ brew install x86_64-elf-gcc nasm grub qemu
 ### Quick Start
 
 ```bash
-# Build and run with supercharged setting's.
+# NOTE: If you wish to change QEMU launch settings, please see: `scripts/build/run.sh` or `scripts/build/compat.sh`
+
+# Build and run with high settings
+# Settings: 16 Gigabytes of RAM, 16 Cpu cores.
 make run
 
-# Build and run with low setting's to test compatability.
+# Build and run with low settings
+# Settings: 128 MB of RAM, 1 Cpu core.
 make compat
 
 # Clean build artifacts
