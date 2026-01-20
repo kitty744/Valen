@@ -1,183 +1,206 @@
-# STDIO Library Documentation
+# STDIO Library
 
 The STDIO library provides VGA text mode output, serial communication, and formatted printing capabilities for CaneOS.
 
-## VGA Text Mode Functions
+## Overview
 
-### Color Management
+The STDIO library is the primary interface for kernel output in CaneOS. It supports both VGA text mode display for user interaction and serial port output for debugging. The library includes a powerful printf implementation with extensive formatting options.
 
-Sets the global text color for all subsequent kprint operations. The color is a VGA color attribute where the lower 4 bits are the foreground color and the upper 4 bits are the background color.
+## Quick Start
 
 ```c
-void set_color(uint8_t color);
+#include "cane/stdio.h"
+
+void kernel_main(void) {
+    // Set text color (optional)
+    set_color(0x0F); // White text on black background
+
+    // Basic output
+    printf("Hello, CaneOS!\n");
+
+    // Formatted output
+    printf("System initialized: %d MB RAM\n", memory_size);
+
+    // Debug output to serial
+    serial_write("Debug: Kernel started successfully\n");
+}
 ```
 
-### Cursor Management
+## VGA Text Mode Output
 
-Returns the current cursor position coordinates.
+### Basic Printing
 
-```c
-int get_cursor_x(void);
-int get_cursor_y(void);
-```
-
-Manually sets the cursor position with spinlock protection. Coordinates are 0-indexed.
+The VGA text mode provides an 80x25 character display with color support:
 
 ```c
-void set_cursor(int x, int y);
-```
+// Simple text output
+printf("This is printed to the VGA buffer\n");
 
-Communicates with the VGA hardware to move the blinking cursor to the specified position.
+// Character output
+putc('A');
 
-```c
-void update_cursor(int x, int y);
-```
-
-Configures the hardware cursor shape by setting the scan line start and end positions.
-
-```c
-void enable_cursor(uint8_t cursor_start, uint8_t cursor_end);
-```
-
-Disables the hardware cursor rendering by setting bit 5 of the Cursor Start Register (0x0A).
-
-```c
-void hide_hardware_cursor(void);
-```
-
-Enables the hardware cursor rendering by clearing bit 5 of the Cursor Start Register (0x0A).
-
-```c
-void show_hardware_cursor(void);
+// String output
+puts("Hello World");
 ```
 
 ### Screen Management
 
-Clears the entire screen except for the status bar (Row 0). Resets cursor to position (0, 1) and enables the hardware cursor.
-
 ```c
-void print_clear(void);
+// Clear the screen (preserves status bar at row 0)
+print_clear();
+
+// Manual cursor control
+set_cursor(10, 5);  // Column 10, Row 5
+int x = get_cursor_x();
+int y = get_cursor_y();
 ```
 
-Handles newline operations including text wrapping and screen scrolling. Preserves the status bar while scrolling content up.
+### Color Support
+
+Use VGA color attributes where the lower 4 bits are foreground and upper 4 bits are background:
 
 ```c
-void print_newline(void);
+// Common colors
+#define COLOR_BLACK     0x00
+#define COLOR_BLUE      0x01
+#define COLOR_GREEN     0x02
+#define COLOR_CYAN      0x03
+#define COLOR_RED       0x04
+#define COLOR_MAGENTA   0x05
+#define COLOR_BROWN     0x06
+#define COLOR_LIGHT_GREY 0x07
+#define COLOR_GREY      0x08
+#define COLOR_LIGHT_BLUE 0x09
+#define COLOR_LIGHT_GREEN 0x0A
+#define COLOR_LIGHT_CYAN  0x0B
+#define COLOR_LIGHT_RED   0x0C
+#define COLOR_LIGHT_MAGENTA 0x0D
+#define COLOR_YELLOW    0x0E
+#define COLOR_WHITE      0x0F
+
+set_color(COLOR_LIGHT_GREEN | COLOR_BLUE);  // Light green on blue
+printf("Colored text\n");
+set_color(COLOR_WHITE | COLOR_BLACK);        // Reset to default
 ```
 
-### Character Output
-
-Prints a single character to the VGA buffer. Handles special characters like '\n', automatic line wrapping, and scrolling. Uses spinlock protection for thread safety.
+### Cursor Control
 
 ```c
-void putc(char c);
-```
+// Enable/disable hardware cursor
+enable_cursor(14, 15);  // Set cursor shape
+hide_hardware_cursor();
+show_hardware_cursor();
 
-Prints a null-terminated string to the VGA buffer by calling putc() for each character.
-
-```c
-void puts(const char *str);
-```
-
-Implements backspace functionality by moving the cursor back one position (with proper line wrapping) and replacing the character with a space. Prevents backspacing into Row 0 (status bar).
-
-```c
-void print_backspace(void);
+// Manual cursor positioning
+set_cursor(0, 1);  // Start of user area (below status bar)
 ```
 
 ## Formatted Printing
 
-### printf Function
+The printf function supports extensive formatting options:
 
-Enhanced printf function with extensive formatting support. Uses variable arguments for formatted output.
+### Number Formatting
 
 ```c
-void printf(const char *format, ...);
+int value = -42;
+unsigned int unsigned_val = 255;
+long long big_num = 1234567890LL;
+
+printf("Signed: %d\n", value);           // -42
+printf("Unsigned: %u\n", unsigned_val);   // 255
+printf("Long: %ld\n", big_num);          // 1234567890
+printf("Long long: %llu\n", big_num);    // 1234567890
 ```
 
-## printf Formatting Options
-
-CaneOS includes an enhanced printf with extensive formatting:
+### Base Conversion
 
 ```c
-// Numbers
-printf("%d", -42);        // Signed integer
-printf("%u", 42);         // Unsigned integer
-printf("%ld", 12345678);  // Long integer
-printf("%llu", 1234567890); // Long long unsigned
+unsigned int val = 255;
 
-// Bases
-printf("%x", 255);        // Hexadecimal (lowercase)
-printf("%X", 255);        // Hexadecimal (uppercase)
-printf("%o", 8);          // Octal
-printf("%b", 5);          // Binary
-
-// Other
-printf("%p", ptr);        // Pointer (0x format)
-printf("%s", "hello");    // String
-printf("%c", 'A');        // Character
-printf("%%");             // Literal percent
+printf("Hex: %x\n", val);      // ff
+printf("HEX: %X\n", val);      // FF
+printf("Octal: %o\n", val);    // 377
+printf("Binary: %b\n", val);    // 11111111
 ```
 
-### Number Printing Functions
-
-Prints a signed 64-bit integer in decimal format.
+### Pointers and Addresses
 
 ```c
-void print_int(uint64_t n);
+void *ptr = &some_variable;
+printf("Pointer: %p\n", ptr);   // 0xFFFFFFFF80001000
 ```
 
-Prints an unsigned 64-bit integer in decimal format.
+### Strings and Characters
 
 ```c
-void print_uint(uint64_t num);
-```
-
-Prints an unsigned 64-bit integer in hexadecimal format with "0x" prefix (uppercase letters).
-
-```c
-void print_hex(uint64_t n);
-```
-
-Prints an unsigned 64-bit integer in hexadecimal format without prefix (uppercase letters).
-
-```c
-void print_hex_upper(uint64_t num);
-```
-
-Prints an unsigned 64-bit integer in octal format.
-
-```c
-void print_octal(uint64_t num);
-```
-
-Prints an unsigned 64-bit integer in binary format.
-
-```c
-void print_binary(uint64_t num);
+printf("String: %s\n", "Hello");
+printf("Character: %c\n", 'A');
+printf("Literal %%: %%\n");
 ```
 
 ## Serial Communication
 
-### Serial Output Functions
-
-Writes a null-terminated string to the COM1 serial port for diagnostics. Uses spinlock protection for thread safety. I/O ports (outb) work in both lower and higher half memory.
+Serial output is primarily used for debugging and diagnostics:
 
 ```c
-void serial_write(char *s);
+// Basic serial output
+serial_write("Kernel boot started\n");
+
+// Formatted serial output
+serial_write_int(memory_size);
+serial_write_hex(0xDEADBEEF);
 ```
 
-Sends an unsigned 64-bit integer to the serial port in decimal format.
+## Error Handling
+
+The STDIO library is designed to be robust:
+
+- All VGA operations use spinlocks for thread safety
+- Serial operations are protected against concurrent access
+- Invalid format specifiers are handled gracefully
+- Cursor operations are bounded to screen dimensions
+
+## Best Practices
+
+1. **Use serial output for debugging** - Serial works even when VGA is unavailable
+2. **Preserve the status bar** - Row 0 is reserved for system status
+3. **Use appropriate colors** - Maintain visual consistency
+4. **Handle thread safety** - The library handles locking automatically
+5. **Format strings carefully** - Use proper format specifiers
+
+## Integration Example
 
 ```c
-void serial_write_int(uint64_t n);
+#include "cane/stdio.h"
+
+void init_display(void) {
+    // Initialize display system
+    set_color(COLOR_WHITE | COLOR_BLACK);
+    print_clear();
+
+    // Set up status bar
+    set_cursor(0, 0);
+    set_color(COLOR_BLACK | COLOR_LIGHT_GREY);
+    printf("CaneOS v1.0 - Ready");
+
+    // Reset to user area
+    set_color(COLOR_WHITE | COLOR_BLACK);
+    set_cursor(0, 1);
+}
+
+void kernel_main(void) {
+    init_display();
+
+    printf("System initialization complete\n");
+    printf("Memory: %d MB available\n", get_memory_size());
+
+    serial_write("Kernel initialization successful\n");
+}
 ```
 
-Sends a 32-bit integer to the serial port in hexadecimal format with "0x" prefix.
+## Thread Safety
 
-```c
-void serial_write_hex(uint32_t n);
-```
+All STDIO functions that modify shared state (VGA buffer, cursor position, serial port) use spinlocks to ensure thread safety in multi-kernel-thread environments. The locking is handled automatically - no additional synchronization is required from the caller.
 
 ## Constants and Configuration
 
@@ -185,7 +208,3 @@ void serial_write_hex(uint32_t n);
 - **Screen Dimensions**: 80 columns × 25 rows
 - **Default Color**: `0x0F` (White text on black background)
 - **Serial Port**: COM1 (0x3f8)
-
-## Thread Safety
-
-Most functions use spinlock protection to ensure thread safety in a multi-kernel-thread environment. The lock is initialized and acquired/released for operations that modify shared state like the cursor position or VGA buffer.

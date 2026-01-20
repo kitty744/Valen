@@ -4,7 +4,7 @@ A modern x86_64 operating system built from scratch with comprehensive hardware 
 
 ## Overview
 
-CaneOS is an operating system designed to run on both old and new hardware, featuring:
+CaneOS is an operating system designed to run on both old and new hardware.
 
 ## Build Requirements
 
