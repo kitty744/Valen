@@ -1,5 +1,5 @@
-# CANE OS - Version 1.0 (All system's ready.)
+# Version 1.0: Bare-bone's
 
-# CANE OS - Version 1.1 (Bug fixes.)
+# Version 1.0.1: Bug fixes
 
-# CANE OS - Version 1.1 (Advanced system's and driver's.)
+# Version 1.1: Advanced system's and driver's.
