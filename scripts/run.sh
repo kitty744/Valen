@@ -41,11 +41,11 @@ check_and_install
 
 # --- 2. MAP KCONFIG TO QEMU ---
 # If .config exists, Make will have exported these. If not, we use defaults.
-Q_MEM=${CONFIG_MEM_SIZE:-512M}
-Q_SMP=${CONFIG_CPU_CORES:-3}
-Q_ARCH=${CONFIG_MACHINE_TYPE:-q35}
-Q_CPU=${CONFIG_CPU_TYPE:-qemu64}
-Q_DEBUG=${CONFIG_DEBUG_FLAGS:-guest_errors}
+Q_MEM=$(echo ${CONFIG_MEM_SIZE:-2G} | tr -d '"')
+Q_SMP=$(echo ${CONFIG_CPU_CORES:-5} | tr -d '"')
+Q_ARCH=$(echo ${CONFIG_MACHINE_TYPE:-q35} | tr -d '"')
+Q_CPU=$(echo ${CONFIG_CPU_TYPE:-qemu64} | tr -d '"')
+Q_DEBUG=$(echo ${CONFIG_DEBUG_FLAGS:-guest_errors} | tr -d '"')
 
 # Handle VGA Choice logic
 Q_VGA="std"
@@ -66,12 +66,12 @@ make clean && make all
 echo "[INFO]: Launching QEMU ($Q_ARCH | $Q_CPU | $Q_MEM RAM)"
 
 qemu-system-x86_64 \
-    -m "$Q_MEM" \
-    -smp "$Q_SMP" \
-    -machine "$Q_ARCH" \
-    -cpu "$Q_CPU" \
-    -vga "$Q_VGA" \
-    -d "$Q_DEBUG" \
+    -m $Q_MEM \
+    -smp $Q_SMP \
+    -machine $Q_ARCH \
+    -cpu $Q_CPU \
+    -vga $Q_VGA \
+    -d $Q_DEBUG \
     -serial stdio \
     -cdrom bin/caneos.iso \
     $Q_AUDIO \
@@ -79,4 +79,3 @@ qemu-system-x86_64 \
 
 # Cleanup after closing QEMU
 make clean
-clear

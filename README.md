@@ -99,8 +99,8 @@ make menuconfig
 
 Build and run CaneOS with default QEMU settings:
 
-- **Memory**: 15GB RAM
-- **CPU**: Maximum performance with 16 threads
+- **Memory**: 2G RAM
+- **CPU**: 5 cores
 - **Graphics**: VGA standard mode
 - **Audio**: SDL audio output
 - **Machine**: Q35 chipset
