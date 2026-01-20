@@ -213,14 +213,6 @@ printf("%c", 'A');        // Character
 printf("%%");             // Literal percent
 ```
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Implement your changes
-4. Test thoroughly with `./scripts/run.sh`
-5. Submit a pull request
-
 ## License
 
 This project is open source. See LICENSE file for details.
