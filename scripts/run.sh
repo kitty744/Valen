@@ -1,30 +1,50 @@
 #!/bin/bash
 
-# QEMU Configuration - Accept command line arguments for flexible settings
+# --- 1. DEFAULT SETTINGS ---
+MEM="15G"
+SMP="16,cores=16,threads=1"
+SOUNDHW="pcspk"
+AUDIODEV="sdl,id=audio0"
+MACHINE="q35"
+CPU="max"
+VGA="std"
+SERIAL="stdio"
+DEBUG="guest_errors"
 
-# Default QEMU settings
-DEFAULT_QEMU_SETTINGS="-machine q35 -cpu max -smp 16,cores=16,threads=1 -m 15G -vga std -serial stdio -rtc base=localtime -d guest_errors -audiodev sdl,id=audio0 -machine pcspk-audiodev=audio0"
+# --- 2. ARGUMENT PARSING ---
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -m)         MEM="$2";        shift 2 ;;
+        -smp)       SMP="$2";        shift 2 ;;
+        -soundhw)   SOUNDHW="$2";    shift 2 ;;
+        -audiodev)  AUDIODEV="$2";   shift 2 ;;
+        -machine)   MACHINE="$2";    shift 2 ;;
+        -cpu)       CPU="$2";        shift 2 ;;
+        -vga)       VGA="$2";        shift 2 ;;
+        -serial)    SERIAL="$2";     shift 2 ;;
+        -d)         DEBUG="$2";      shift 2 ;;
+        *)          EXTRA_ARGS+="$1 "; shift ;; # Capture anything else
+    esac
+done
 
-# Use provided arguments, or fall back to defaults
-if [ $# -eq 0 ]; then
-    QEMU_ARGS="$DEFAULT_QEMU_SETTINGS"
-else
-    QEMU_ARGS="$*"
-fi
-
-echo "[INFO]: CLEANING PREVIOUS BUILD"
-make clean
-
-echo "[INFO]: BUILDING"
-make all
+echo "[INFO]: CLEANING AND BUILDING"
+make clean && make all
 
 echo "[INFO]: LAUNCHING QEMU"
-echo "[INFO]: Using QEMU settings: $QEMU_ARGS"
+echo "[INFO]: Config: CPU=$CPU, MEM=$MEM, SMP=$SMP, VGA=$VGA"
 
+# --- 3. EXECUTION ---
 qemu-system-x86_64 \
+    -machine "$MACHINE,pcspk-audiodev=audio0" \
+    -cpu "$CPU" \
+    -smp "$SMP" \
+    -m "$MEM" \
+    -vga "$VGA" \
+    -serial "$SERIAL" \
+    -audiodev "$AUDIODEV" \
+    -d "$DEBUG" \
     -cdrom bin/caneos.iso \
-    $QEMU_ARGS
+    $EXTRA_ARGS
 
-# Clean build artifacts and clear the terminal upon exit.
+# Cleanup after closing QEMU
 make clean
-clear

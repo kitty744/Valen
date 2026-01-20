@@ -81,7 +81,7 @@ Build and run CaneOS with default QEMU settings:
 make run
 ```
 
-#### `make run [OPTIONS]`
+#### `make run-custom [OPTIONS]`
 
 Build and run with custom QEMU settings. All arguments are passed directly to QEMU:
 
@@ -97,10 +97,10 @@ Build and run with custom QEMU settings. All arguments are passed directly to QE
 
 ```bash
 # Example: 8GB RAM, 4 CPU cores, PC speaker audio
-make run -m 8G -smp 4 -soundhw pcspk
+make run-custom -- -m 8G -smp 4 -soundhw pcspk
 
 # Example: 4GB RAM, no audio
-make run -m 4G -audiodev none
+make run-custom -- -m 4G -audiodev none
 ```
 
 #### `make all`
@@ -126,10 +126,8 @@ make clean
 make run
 
 # Build and run with custom QEMU settings
-make run -m 8G -smp 4 -soundhw pcspk
+make run-custom -- -m 8G -smp 4 -soundhw pcspk
 
-# Or run the script directly with arguments
-./scripts/run.sh -m 4G -audiodev none
 ```
 
 ### Build Process
