@@ -3,7 +3,7 @@ mainmenu "CaneOS Configuration"
 menu "Processor and Memory"
     config MEM_SIZE
         string "Memory Size"
-        default "15G"
+        default "2G"
         help
           Set the amount of RAM for QEMU.
           - 512M: Legacy/Testing
@@ -12,14 +12,14 @@ menu "Processor and Memory"
 
     config CPU_CORES
         int "CPU Core Count"
-        default 16
+        default 4
         help
           Number of CPU cores to allocate to the guest.
           Match your physical host for best performance.
 
     config CPU_TYPE
         string "CPU Model"
-        default "max"
+        default "qemu64"
         help
           Tutorial:
           - max: Best for modern systems.
