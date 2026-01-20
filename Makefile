@@ -44,12 +44,6 @@ $(OBJDIR)/%.o: %.s
 run:
 	chmod +x ./scripts/run.sh
 	./scripts/run.sh
-
-RUN_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
-run-custom:
-	chmod +x ./scripts/run.sh
-	./scripts/run.sh $(RUN_ARGS)
-	
 clean:
 	rm -rf $(OBJDIR) $(BINDIR) isofiles
 
