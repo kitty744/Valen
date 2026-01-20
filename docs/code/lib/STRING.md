@@ -4,22 +4,21 @@ The String library provides essential string manipulation and memory operations 
 
 ## Overview
 
-The String library implements common string functions similar to the C standard library, optimized for kernel usage. It provides memory-safe operations for string manipulation, copying, and comparison without requiring external dependencies.
+The String library implements basic string and memory functions needed for kernel operations. It provides memory-safe operations for string manipulation, copying, and comparison without requiring external dependencies.
 
 ## Quick Start
 
 ```c
-#include "cane/string.h"
+#include <cane/string.h>
 
 void kernel_main(void) {
     char buffer[256];
 
     // String operations
     strcpy(buffer, "Hello, CaneOS!");
-    strcat(buffer, " Welcome to the kernel.");
 
     // Length operations
-    size_t len = strlen(buffer);
+    int len = strlen(buffer);
 
     // Comparison
     if (strcmp(buffer, "expected") == 0) {
@@ -32,108 +31,146 @@ void kernel_main(void) {
 }
 ```
 
-## String Operations
+## Available Functions
 
-### Basic String Functions
+### String Operations
 
 ```c
 // String length
-size_t strlen(const char *str);
-
-// String copy
-char *strcpy(char *dest, const char *src);
-char *strncpy(char *dest, const char *src, size_t n);
-
-// String concatenation
-char *strcat(char *dest, const char *src);
-char *strncat(char *dest, const char *src, size_t n);
+int strlen(const char *str);
 
 // String comparison
-int strcmp(const char *s1, const char *s2);
-int strncmp(const char *s1, const char *s2, size_t n);
+int strcmp(const char *str1, const char *str2);
 ```
 
-### String Search Functions
+### Memory Operations
 
 ```c
-// Find character in string
-char *strchr(const char *s, int c);
-char *strrchr(const char *s, int c);
-
-// Find substring
-char *strstr(const char *haystack, const char *needle);
-
-// Find first/last occurrence of any character from set
-size_t strspn(const char *s, const char *accept);
-size_t strcspn(const char *s, const char *reject);
-char *strpbrk(const char *s, const char *accept);
-```
-
-### String Tokenization
-
-```c
-// Split string into tokens
-char *strtok(char *str, const char *delim);
-char *strtok_r(char *str, const char *delim, char **saveptr);
-```
-
-## Memory Operations
-
-### Basic Memory Functions
-
-```c
-// Memory copy
-void *memcpy(void *dest, const void *src, size_t n);
-void *memmove(void *dest, const void *src, size_t n);
-
 // Memory fill
-void *memset(void *s, int c, size_t n);
+void *memset(void *ptr, int value, uint64_t num);
 
-// Memory comparison
-int memcmp(const void *s1, const void *s2, size_t n);
+// Memory copy
+void *memcpy(void *dest, const void *src, uint64_t num);
 ```
 
-### Memory Search
+## Function Documentation
+
+### strlen
+
+Returns the length of a null-terminated string.
 
 ```c
-// Find byte in memory
-void *memchr(const void *s, int c, size_t n);
-void *memrchr(const void *s, int c, size_t n);
+int strlen(const char *str);
+```
+
+**Parameters:**
+
+- `str` - Pointer to null-terminated string
+
+**Returns:** Length of string (number of characters before null terminator)
+
+**Example:**
+
+```c
+char *message = "Hello, World!";
+int len = strlen(message);  // Returns 13
+```
+
+### strcmp
+
+Compares two strings lexicographically.
+
+```c
+int strcmp(const char *str1, const char *str2);
+```
+
+**Parameters:**
+
+- `str1` - First string to compare
+- `str2` - Second string to compare
+
+**Returns:**
+
+- `< 0` if str1 < str2
+- `> 0` if str1 > str2
+- `0` if str1 == str2
+
+**Example:**
+
+```c
+int result = strcmp("apple", "banana");  // Returns negative value
+if (strcmp(str1, str2) == 0) {
+    // Strings are equal
+}
+```
+
+### memset
+
+Fills a block of memory with a specified value.
+
+```c
+void *memset(void *ptr, int value, uint64_t num);
+```
+
+**Parameters:**
+
+- `ptr` - Pointer to memory block
+- `value` - Value to set (converted to unsigned char)
+- `num` - Number of bytes to set
+
+**Returns:** Pointer to the memory block
+
+**Example:**
+
+```c
+char buffer[1024];
+memset(buffer, 0, sizeof(buffer));  // Clear buffer
+memset(buffer, 'A', 10);            // Fill first 10 bytes with 'A'
+```
+
+### memcpy
+
+Copies a block of memory from source to destination.
+
+```c
+void *memcpy(void *dest, const void *src, uint64_t num);
+```
+
+**Parameters:**
+
+- `dest` - Destination pointer
+- `src` - Source pointer
+- `num` - Number of bytes to copy
+
+**Returns:** Pointer to destination
+
+**Example:**
+
+```c
+char src[] = "Hello";
+char dest[6];
+memcpy(dest, src, sizeof(src));  // Copy "Hello" to dest
 ```
 
 ## Usage Examples
 
-### Safe String Handling
+### String Processing
 
 ```c
-void safe_string_example(void) {
-    char buffer[64];
-    const char *input = "This is a long string that might be truncated";
-
-    // Safe copy with length limit
-    strncpy(buffer, input, sizeof(buffer) - 1);
-    buffer[sizeof(buffer) - 1] = '\0';  // Ensure null termination
-
-    // Safe concatenation
-    if (strlen(buffer) + strlen(" more") < sizeof(buffer)) {
-        strcat(buffer, " more");
+void process_string(const char *input) {
+    // Check if string is empty
+    if (strlen(input) == 0) {
+        printf("Empty string\n");
+        return;
     }
-}
-```
 
-### String Parsing
-
-```c
-void parse_command_line(char *cmdline) {
-    char *token;
-    char *saveptr;
-
-    // Parse command arguments
-    token = strtok_r(cmdline, " \t", &saveptr);
-    while (token != NULL) {
-        // Process each token
-        printf("Argument: %s\n", token);
-        token = strtok_r(NULL, " \t", &saveptr);
+    // Compare with known commands
+    if (strcmp(input, "help") == 0) {
+        show_help();
+    } else if (strcmp(input, "status") == 0) {
+        show_status();
+    } else {
+        printf("Unknown command: %s\n", input);
     }
 }
 ```
@@ -151,97 +188,78 @@ void buffer_operations(void) {
     uint8_t source[] = {0x01, 0x02, 0x03, 0x04};
     memcpy(buffer, source, sizeof(source));
 
-    // Find specific byte
-    uint8_t *found = memchr(buffer, 0x03, sizeof(buffer));
-    if (found != NULL) {
-        printf("Found byte at offset: %zu\n", found - buffer);
-    }
+    // Use buffer for kernel operations
+    process_data(buffer, sizeof(source));
 }
 ```
 
-### String Validation
+### String Building
 
 ```c
-bool is_valid_filename(const char *filename) {
-    // Check for empty string
-    if (strlen(filename) == 0) {
-        return false;
-    }
+void build_string(char *buffer, const char *name, int value) {
+    // Copy name to buffer
+    strcpy(buffer, name);
 
-    // Check for invalid characters
-    const char *invalid_chars = "/\\:*?\"<>|";
-    if (strpbrk(filename, invalid_chars) != NULL) {
-        return false;
-    }
+    // Add separator
+    strcat(buffer, ": ");
 
-    // Check length
-    if (strlen(filename) > 255) {
-        return false;
-    }
-
-    return true;
+    // Convert number to string and append
+    char num_str[16];
+    int_to_string(value, num_str);
+    strcat(buffer, num_str);
 }
 ```
 
-## Advanced Usage
+## Implementation Details
 
-### Custom String Functions
+### String Length Algorithm
 
 ```c
-// Convert string to lowercase
-void strlower(char *str) {
-    for (int i = 0; str[i]; i++) {
-        if (str[i] >= 'A' && str[i] <= 'Z') {
-            str[i] = str[i] + 32;
-        }
+int strlen(const char *str) {
+    int len = 0;
+    while (*str++) {
+        len++;
     }
-}
-
-// Trim whitespace from string
-char *strtrim(char *str) {
-    char *end;
-
-    // Trim leading space
-    while (*str == ' ' || *str == '\t' || *str == '\n') str++;
-
-    if (*str == 0) return str;
-
-    // Trim trailing space
-    end = str + strlen(str) - 1;
-    while (end > str && (*end == ' ' || *end == '\t' || *end == '\n')) end--;
-
-    end[1] = '\0';
-    return str;
+    return len;
 }
 ```
 
-### Format String Validation
+The function iterates through the string until it finds the null terminator, counting characters along the way.
+
+### String Comparison Algorithm
 
 ```c
-bool safe_printf_format(const char *format) {
-    // Check for format string vulnerabilities
-    const char *p = format;
-
-    while (*p) {
-        if (*p == '%') {
-            p++;
-            if (*p == '%') {
-                p++;
-                continue;
-            }
-
-            // Skip format specifiers
-            while (*p && *p != ' ' && *p != '\n' && *p != '\t') {
-                if (strchr("diuoxXfFeEgGaAcspn%", *p)) {
-                    break;
-                }
-                p++;
-            }
-        }
-        p++;
+int strcmp(const char *str1, const char *str2) {
+    while (*str1 && (*str1 == *str2)) {
+        str1++;
+        str2++;
     }
+    return *(const unsigned char *)str1 - *(const unsigned char *)str2;
+}
+```
 
-    return true;
+The function compares characters until it finds a difference or reaches the end of either string.
+
+### Memory Operations
+
+Both `memset` and `memcpy` use simple byte-by-byte loops:
+
+```c
+void *memset(void *ptr, int value, uint64_t num) {
+    uint8_t *p = (uint8_t *)ptr;
+    while (num--) {
+        *p++ = (uint8_t)value;
+    }
+    return ptr;
+}
+
+void *memcpy(void *dest, const void *src, uint64_t num) {
+    uint8_t *d = (uint8_t *)dest;
+    const uint8_t *s = (const uint8_t *)src;
+    while (num--) {
+        *d++ = *s++;
+    }
+    return dest;
 }
 ```
 
@@ -249,16 +267,9 @@ bool safe_printf_format(const char *format) {
 
 1. **Buffer bounds checking** - Always verify buffer sizes before operations
 2. **Null termination** - Ensure strings are properly null-terminated
-3. **Use safe variants** - Prefer strncpy/strncat over strcpy/strcat
-4. **Memory initialization** - Initialize buffers with memset when needed
-5. **Error handling** - Check return values and handle edge cases
-
-## Performance Considerations
-
-- **String length caching** - Cache strlen results for repeated use
-- **Memory alignment** - Ensure proper alignment for memory operations
-- **Avoid unnecessary copies** - Use pointers when possible instead of copying
-- **Batch operations** - Combine multiple small operations when possible
+3. **Memory alignment** - These functions work with any alignment
+4. **Error handling** - Check return values where applicable
+5. **Performance** - For large memory operations, consider specialized optimizations
 
 ## Kernel-Specific Considerations
 
@@ -275,70 +286,78 @@ void kernel_string_example(void) {
     static char static_buffer[1024];
 
     // Use with kernel memory management
-    char *heap_buffer = kmalloc(512);
+    char *heap_buffer = malloc(512);
     if (heap_buffer) {
         strcpy(heap_buffer, "Kernel allocated string");
         // ... use heap_buffer ...
-        kfree(heap_buffer);
+        free(heap_buffer);
     }
 }
 ```
 
-### Interrupt Safety
+### Thread Safety
 
-String functions are not interrupt-safe by default:
+The string functions are not thread-safe by themselves. If used in multi-threaded contexts, provide appropriate synchronization:
 
 ```c
-// For interrupt contexts, use atomic operations
-void interrupt_safe_string_copy(volatile char *dest, const volatile char *src, size_t n) {
-    // Disable interrupts during operation
-    disable_interrupts();
-    memcpy((void*)dest, (const void*)src, n);
-    enable_interrupts();
-}
+// For shared string operations
+spinlock_acquire(&string_lock);
+strcpy(shared_buffer, input);
+spinlock_release(&string_lock);
 ```
 
 ## Integration Example
 
 ```c
-#include "cane/string.h"
+#include <cane/string.h>
+#include <cane/stdio.h>
 
-void process_user_input(const char *input) {
+void process_command(const char *command) {
     char buffer[128];
-    char *args[16];
-    int arg_count = 0;
 
-    // Copy and normalize input
-    strncpy(buffer, input, sizeof(buffer) - 1);
-    buffer[sizeof(buffer) - 1] = '\0';
-    strtrim(buffer);
-    strlower(buffer);
+    // Copy command to buffer for processing
+    memcpy(buffer, command, strlen(command) + 1);
 
-    // Parse arguments
-    char *token = strtok(buffer, " \t");
-    while (token != NULL && arg_count < 16) {
-        args[arg_count++] = token;
-        token = strtok(NULL, " \t");
+    // Process different commands
+    if (strcmp(buffer, "clear") == 0) {
+        print_clear();
+    } else if (strcmp(buffer, "help") == 0) {
+        printf("Available commands: clear, help, status\n");
+    } else if (strcmp(buffer, "status") == 0) {
+        printf("System status: OK\n");
+    } else {
+        printf("Unknown command: %s\n", buffer);
     }
+}
 
-    // Process command
-    if (arg_count > 0) {
-        if (strcmp(args[0], "help") == 0) {
-            show_help();
-        } else if (strcmp(args[0], "status") == 0) {
-            show_system_status();
-        }
+void memory_example(void) {
+    // Allocate and initialize memory
+    char *data = malloc(1024);
+    if (data) {
+        // Clear memory
+        memset(data, 0, 1024);
+
+        // Copy pattern
+        char pattern[] = "CaneOS";
+        memcpy(data, pattern, sizeof(pattern));
+
+        // Use data...
+
+        free(data);
     }
 }
 ```
 
-## Error Handling
+## Limitations
 
-String functions return specific values for error conditions:
+The current string library is intentionally simple and includes only the most essential functions:
 
-- **NULL pointers** - Most functions return NULL or -1 for invalid inputs
-- **Buffer overflows** - Safe variants prevent overflows but may truncate
-- **Invalid characters** - Search functions return NULL when not found
-- **Empty strings** - Length functions return 0, comparison may succeed
+- **No strcasecmp** - Case-insensitive comparison not available
+- **No strncpy** - No length-limited string copy
+- **No strstr** - No substring search
+- **No strtok** - No string tokenization
+- **No sprintf** - No formatted string functions
 
-Always check return values and handle edge cases appropriately in kernel code.
+Additional functions can be added as needed for specific kernel requirements.
+
+This string library provides the essential functionality needed for basic kernel string and memory operations while remaining simple and efficient.

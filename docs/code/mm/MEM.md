@@ -1,466 +1,415 @@
 # Memory Management
 
-The Memory Management system provides dynamic memory allocation, virtual memory management, and memory protection for CaneOS.
+The Memory Management system provides physical memory allocation, virtual memory management, and kernel heap allocation for CaneOS.
 
 ## Overview
 
-CaneOS uses a sophisticated memory management system that combines physical memory management, virtual memory mapping, and kernel heap allocation. The system supports both kernel and user space memory management with proper isolation and protection.
+CaneOS uses a three-tier memory management system: Physical Memory Manager (PMM) for tracking physical pages, Virtual Memory Manager (VMM) for address translation, and a kernel heap for dynamic allocation.
 
 ## Quick Start
 
 ```c
-#include "cane/mm.h"
+#include <cane/pmm.h>
+#include <cane/vmm.h>
+#include <cane/heap.h>
 
 void kernel_main(void) {
     // Initialize memory management
-    mm_init();
+    pmm_init(bitmap_addr, memory_size);
+    vmm_init();
+    heap_init();
 
-    // Allocate kernel memory
-    void *buffer = kmalloc(1024);
+    // Allocate physical page
+    void *phys_page = pmm_alloc_page();
+
+    // Allocate virtual memory
+    void *virt_mem = vmm_alloc(1, PAGE_PRESENT | PAGE_WRITE);
+
+    // Allocate from kernel heap
+    void *heap_mem = malloc(1024);
+
+    // Use memory...
+
+    // Free when done
+    pmm_free_page(phys_page);
+    free(heap_mem);
+}
+```
+
+## Physical Memory Manager (PMM)
+
+### Overview
+
+The PMM tracks available physical pages using a bitmap system. Each bit represents one 4KB page.
+
+### Initialization
+
+```c
+void pmm_init(uintptr_t start, uint64_t size);
+```
+
+**Parameters:**
+
+- `start` - Virtual address where bitmap should be placed
+- `size` - Total size of physical RAM in bytes
+
+**Example:**
+
+```c
+uintptr_t bitmap_phys = (kernel_phys_end + 0x1000) & ~0xFFFULL;
+pmm_init((uintptr_t)PHYS_TO_VIRT(bitmap_phys), max_physical_addr);
+```
+
+### Page Allocation
+
+```c
+void *pmm_alloc_page(void);
+void pmm_free_page(void *addr);
+void pmm_mark_free(uintptr_t addr);
+void pmm_mark_used(uintptr_t addr);
+```
+
+**Example:**
+
+```c
+// Allocate a physical page
+void *page = pmm_alloc_page();
+if (page) {
+    // Use the physical page
+    printf("Allocated page at: 0x%p\n", page);
+
+    // Free when done
+    pmm_free_page(page);
+}
+```
+
+### Memory Statistics
+
+```c
+uint64_t pmm_get_total_kb(void);
+uint64_t pmm_get_used_kb(void);
+uint64_t pmm_get_free_kb(void);
+```
+
+**Example:**
+
+```c
+printf("Memory: %d KB total, %d KB used, %d KB free\n",
+       pmm_get_total_kb(), pmm_get_used_kb(), pmm_get_free_kb());
+```
+
+### PMM Implementation Details
+
+The PMM uses a bitmap where each bit represents a 4KB page:
+
+```c
+static uint8_t *bitmap;
+static uint64_t bitmap_size;
+static uint64_t total_pages;
+static uint64_t used_pages;
+static spinlock_t pmm_lock = SPINLOCK_INIT;
+```
+
+**Safety Features:**
+
+- Never allocates pages below 2MB (reserved for kernel/BIOS)
+- Thread-safe with spinlock protection
+- All addresses are physical addresses
+
+## Virtual Memory Manager (VMM)
+
+### Overview
+
+The VMM provides virtual-to-physical address translation and manages page tables.
+
+### Page Flags
+
+```c
+#define PAGE_PRESENT (1ULL << 0)  // Page is present
+#define PAGE_WRITE   (1ULL << 1)  // Page is writable
+#define PAGE_USER    (1ULL << 2)  // Accessible from user mode
+#define PAGE_PWT     (1ULL << 3)  // Page-level write-through
+#define PAGE_PCD     (1ULL << 4)  // Page-level cache disable
+#define PAGE_HUGE    (1ULL << 7)  // 2MB/1GB pages
+```
+
+### Memory Mapping
+
+```c
+void vmm_map(uintptr_t virt, uintptr_t phys, uint64_t flags);
+void vmm_map_range(uintptr_t virt, uintptr_t phys, uint64_t size, uint64_t flags);
+```
+
+**Example:**
+
+```c
+// Map a single page
+vmm_map(0x1000000, physical_addr, PAGE_PRESENT | PAGE_WRITE);
+
+// Map a range of memory
+vmm_map_range(0x2000000, physical_addr, 0x10000, PAGE_PRESENT | PAGE_WRITE);
+```
+
+### Virtual Allocation
+
+```c
+void *vmm_alloc(uint64_t pages, uint64_t flags);
+```
+
+**Parameters:**
+
+- `pages` - Number of pages to allocate
+- `flags` - Page protection flags
+
+**Returns:** Virtual address of allocated memory
+
+**Example:**
+
+```c
+// Allocate 4 pages (16KB)
+void *memory = vmm_alloc(4, PAGE_PRESENT | PAGE_WRITE);
+if (memory) {
+    printf("Allocated virtual memory at: 0x%p\n", memory);
+}
+```
+
+### Address Translation
+
+```c
+uintptr_t vmm_get_phys(uintptr_t virtual_addr);
+```
+
+**Example:**
+
+```c
+uintptr_t phys = vmm_get_phys(virtual_addr);
+if (phys) {
+    printf("Virtual 0x%p maps to physical 0x%p\n", virtual_addr, phys);
+}
+```
+
+### VMM Implementation Details
+
+The VMM uses standard x86_64 page table structures:
+
+```c
+// Page table indices for address translation
+uint64_t pml4_idx = (virtual_addr >> 39) & 0x1FF;
+uint64_t pdpt_idx = (virtual_addr >> 30) & 0x1FF;
+uint64_t pd_idx  = (virtual_addr >> 21) & 0x1FF;
+uint64_t pt_idx  = (virtual_addr >> 12) & 0x1FF;
+```
+
+**Features:**
+
+- Supports 4KB, 2MB, and 1GB pages
+- Automatic TLB invalidation
+- Thread-safe with spinlock protection
+
+## Kernel Heap
+
+### Overview
+
+The kernel heap provides dynamic memory allocation using a linked-list based allocator.
+
+### Heap Operations
+
+```c
+void heap_init(void);
+void *malloc(uint64_t size);
+void free(void *ptr);
+```
+
+### Allocation Example
+
+```c
+void heap_example(void) {
+    // Allocate memory
+    char *buffer = malloc(256);
     if (buffer) {
-        memset(buffer, 0, 1024);
-        // Use buffer...
-        kfree(buffer);
-    }
+        // Use the memory
+        strcpy(buffer, "Hello from heap!");
+        printf("Heap buffer: %s\n", buffer);
 
-    // Allocate page-aligned memory
-    void *page_buffer = kmalloc_page(4096);
-
-    // Map virtual memory
-    void *virt_addr = mm_map_physical(physical_addr, size, flags);
-}
-```
-
-## Memory Architecture
-
-### Physical Memory Management
-
-The physical memory manager tracks available physical pages and provides allocation services:
-
-```c
-// Initialize physical memory manager
-void pmm_init(uint64_t memory_size, struct multiboot_mmap_entry *mmap);
-
-// Allocate/free physical pages
-uint64_t pmm_alloc_page(void);
-void pmm_free_page(uint64_t page_addr);
-
-// Allocate multiple pages
-uint64_t pmm_alloc_pages(size_t count);
-void pmm_free_pages(uint64_t page_addr, size_t count);
-```
-
-### Virtual Memory Management
-
-Virtual memory provides address space isolation and memory protection:
-
-```c
-// Initialize virtual memory manager
-void vmm_init(void);
-
-// Map/unmap virtual pages
-int vmm_map_page(uint64_t virt_addr, uint64_t phys_addr, uint32_t flags);
-int vmm_unmap_page(uint64_t virt_addr);
-
-// Get physical address from virtual
-uint64_t vmm_get_physical(uint64_t virt_addr);
-
-// Change page protection
-int vmm_protect_page(uint64_t virt_addr, uint32_t flags);
-```
-
-### Kernel Heap Management
-
-The kernel heap provides dynamic memory allocation for kernel components:
-
-```c
-// Initialize kernel heap
-void kheap_init(void);
-
-// Allocate/free kernel memory
-void *kmalloc(size_t size);
-void *kcalloc(size_t count, size_t size);
-void *krealloc(void *ptr, size_t size);
-void kfree(void *ptr);
-
-// Allocate page-aligned memory
-void *kmalloc_page(size_t size);
-```
-
-## Memory Allocation Patterns
-
-### Basic Kernel Allocation
-
-```c
-void basic_allocation_example(void) {
-    // Simple allocation
-    char *buffer = kmalloc(256);
-    if (buffer) {
-        strcpy(buffer, "Hello, kernel!");
-        printf("Buffer: %s\n", buffer);
-        kfree(buffer);
-    }
-
-    // Zero-initialized allocation
-    struct my_struct *obj = kcalloc(1, sizeof(struct my_struct));
-    if (obj) {
-        // obj->fields are already zeroed
-        obj->id = 42;
-        kfree(obj);
-    }
-
-    // Reallocation
-    char *dynamic = kmalloc(64);
-    if (dynamic) {
-        strcpy(dynamic, "Initial content");
-
-        // Expand buffer
-        char *expanded = krealloc(dynamic, 128);
-        if (expanded) {
-            strcat(expanded, " - expanded!");
-            printf("Expanded: %s\n", expanded);
-            kfree(expanded);
-        }
+        // Free when done
+        free(buffer);
     }
 }
 ```
 
-### Page-Aligned Allocation
+### Heap Implementation Details
+
+The heap uses a node-based allocator:
 
 ```c
-void page_aligned_example(void) {
-    // Allocate page-aligned memory for DMA or hardware interfaces
-    void *dma_buffer = kmalloc_page(4096);
-    if (dma_buffer) {
-        // Buffer is guaranteed to be page-aligned
-        printf("DMA buffer at: 0x%p\n", dma_buffer);
+typedef struct heap_node {
+    uint32_t magic;        // Magic number for validation
+    uint64_t size;         // Size of this block
+    struct heap_node *next; // Next node in list
+    int free;              // 1 if free, 0 if allocated
+} heap_node_t;
 
-        // Use for hardware operations
-        setup_dma_transfer(dma_buffer, 4096);
+#define HEAP_MAGIC 0x12345678
+```
 
-        kfree(dma_buffer);
-    }
+**Features:**
 
-    // Allocate multiple pages
-    void *large_buffer = kmalloc_page(64 * 1024);  // 64KB
-    if (large_buffer) {
-        // Use large buffer...
-        kfree(large_buffer);
-    }
+- Automatic coalescing of adjacent free blocks
+- 8-byte alignment for all allocations
+- Magic number validation for corruption detection
+- Thread-safe with spinlock protection
+
+## Memory Layout
+
+### Virtual Address Space
+
+```
+0xFFFFFFFF80000000 - 0xFFFFFFFFB0000000 : Kernel code and data
+0xFFFFFFFFB0000000 - 0xFFFFFFFFC0000000 : Kernel heap allocations
+0xFFFFFFFFC0000000 - 0xFFFFFFFFFEFFFFFF : Device mappings
+```
+
+### Physical Memory Protection
+
+The PMM protects critical memory regions:
+
+- **First 2MB (0x0 - 0x200000)** - Reserved for hardware/BIOS
+- **Kernel memory** - Protected during allocation
+- **PMM bitmap** - Protected to prevent corruption
+
+## Usage Patterns
+
+### Basic Memory Allocation
+
+```c
+void basic_allocation(void) {
+    // Allocate from kernel heap
+    void *heap_mem = malloc(1024);
+
+    // Allocate virtual memory
+    void *virt_mem = vmm_alloc(2, PAGE_PRESENT | PAGE_WRITE);
+
+    // Allocate physical page directly
+    void *phys_page = pmm_alloc_page();
+
+    // Use memory...
+
+    // Clean up
+    free(heap_mem);
+    // Note: vmm_alloc and pmm_alloc_page don't have free equivalents
+    // in the current implementation
 }
 ```
 
-### Virtual Memory Mapping
+### Device Memory Mapping
 
 ```c
-void virtual_memory_example(void) {
-    // Map physical memory to virtual address
-    uint64_t phys_addr = 0x1000000;  // Some physical address
-    size_t size = 4096;
-    uint32_t flags = PAGE_PRESENT | PAGE_WRITE;
+void map_device_registers(uintptr_t phys_addr, size_t size) {
+    // Map device registers with cache disabled
+    uint64_t flags = PAGE_PRESENT | PAGE_WRITE | PAGE_PCD;
+    vmm_map_range(0xF0000000, phys_addr, size, flags);
 
-    void *virt_addr = mm_map_physical(phys_addr, size, flags);
-    if (virt_addr) {
-        // Access physical memory through virtual address
-        uint32_t *memory = (uint32_t*)virt_addr;
-        *memory = 0xDEADBEEF;
-
-        // Unmap when done
-        mm_unmap_physical(virt_addr, size);
-    }
+    // Now access device registers at 0xF0000000
+    volatile uint32_t *regs = (volatile uint32_t *)0xF0000000;
+    regs[0] = 0xDEADBEEF;
 }
 ```
 
-## Memory Protection and Flags
-
-### Page Protection Flags
+### Memory Statistics
 
 ```c
-// Common page flags
-#define PAGE_PRESENT    (1 << 0)  // Page is present
-#define PAGE_WRITE      (1 << 1)  // Page is writable
-#define PAGE_USER       (1 << 2)  // Page is accessible from user mode
-#define PAGE_WRITE_THROUGH (1 << 3)  // Write-through caching
-#define PAGE_CACHE_DISABLE (1 << 4)  // Disable caching
-#define PAGE_ACCESSED   (1 << 5)  // Page was accessed (set by CPU)
-#define PAGE_DIRTY      (1 << 6)  // Page was written to (set by CPU)
+void print_memory_info(void) {
+    printf("Physical Memory:\n");
+    printf("  Total: %d KB\n", pmm_get_total_kb());
+    printf("  Used:  %d KB\n", pmm_get_used_kb());
+    printf("  Free:  %d KB\n", pmm_get_free_kb());
 
-// Example: Create user-accessible, writable page
-uint32_t user_flags = PAGE_PRESENT | PAGE_WRITE | PAGE_USER;
-vmm_map_page(virt_addr, phys_addr, user_flags);
-
-// Example: Create kernel-only, read-only page
-uint32_t kernel_ro_flags = PAGE_PRESENT;
-vmm_map_page(virt_addr, phys_addr, kernel_ro_flags);
-```
-
-### Memory Regions
-
-```c
-// Define memory regions with different properties
-struct memory_region {
-    uint64_t start;
-    uint64_t end;
-    uint32_t flags;
-    const char *name;
-};
-
-void setup_memory_regions(void) {
-    // Kernel code region (read-only, executable)
-    struct memory_region kernel_code = {
-        .start = 0xFFFFFFFF80000000,
-        .end = 0xFFFFFFFF800FFFFF,
-        .flags = PAGE_PRESENT | PAGE_EXECUTIVE,
-        .name = "kernel_code"
-    };
-
-    // Kernel data region (read-write)
-    struct memory_region kernel_data = {
-        .start = 0xFFFFFFFF80100000,
-        .end = 0xFFFFFFFF801FFFFF,
-        .flags = PAGE_PRESENT | PAGE_WRITE | PAGE_EXECUTIVE,
-        .name = "kernel_data"
-    };
-
-    // User space region
-    struct memory_region user_space = {
-        .start = 0x0000000000400000,
-        .end = 0x0000000000800000,
-        .flags = PAGE_PRESENT | PAGE_WRITE | PAGE_USER,
-        .name = "user_space"
-    };
-}
-```
-
-## Advanced Memory Management
-
-### Memory Pools
-
-```c
-// Create specialized memory pools for frequent allocations
-struct memory_pool {
-    void *base;
-    size_t block_size;
-    size_t total_blocks;
-    size_t free_blocks;
-    uint32_t *free_bitmap;
-};
-
-struct memory_pool *create_memory_pool(size_t block_size, size_t count) {
-    struct memory_pool *pool = kmalloc(sizeof(struct memory_pool));
-    if (!pool) return NULL;
-
-    pool->base = kmalloc_page(block_size * count);
-    pool->block_size = block_size;
-    pool->total_blocks = count;
-    pool->free_blocks = count;
-    pool->free_bitmap = kcalloc((count + 31) / 32, sizeof(uint32_t));
-
-    return pool;
-}
-
-void *pool_alloc(struct memory_pool *pool) {
-    if (pool->free_blocks == 0) return NULL;
-
-    // Find first free block
-    for (size_t i = 0; i < pool->total_blocks; i++) {
-        size_t bitmap_index = i / 32;
-        size_t bit_index = i % 32;
-
-        if (!(pool->free_bitmap[bitmap_index] & (1 << bit_index))) {
-            pool->free_bitmap[bitmap_index] |= (1 << bit_index);
-            pool->free_blocks--;
-            return pool->base + (i * pool->block_size);
-        }
+    // Calculate usage percentage
+    uint64_t total = pmm_get_total_kb();
+    uint64_t used = pmm_get_used_kb();
+    if (total > 0) {
+        printf("  Usage: %d%%\n", (used * 100) / total);
     }
-
-    return NULL;
 }
-```
-
-### Memory Debugging
-
-```c
-// Debug memory allocation tracking
-struct alloc_info {
-    void *ptr;
-    size_t size;
-    const char *file;
-    int line;
-    struct alloc_info *next;
-};
-
-static struct alloc_info *alloc_list = NULL;
-static spinlock_t alloc_lock = {0};
-
-void *debug_kmalloc(size_t size, const char *file, int line) {
-    void *ptr = kmalloc(size);
-    if (!ptr) return NULL;
-
-    spinlock_acquire(&alloc_lock);
-
-    struct alloc_info *info = kmalloc(sizeof(struct alloc_info));
-    if (info) {
-        info->ptr = ptr;
-        info->size = size;
-        info->file = file;
-        info->line = line;
-        info->next = alloc_list;
-        alloc_list = info;
-    }
-
-    spinlock_release(&alloc_lock);
-    return ptr;
-}
-
-void debug_kfree(void *ptr) {
-    if (!ptr) return;
-
-    spinlock_acquire(&alloc_lock);
-
-    struct alloc_info **current = &alloc_list;
-    while (*current) {
-        if ((*current)->ptr == ptr) {
-            struct alloc_info *to_remove = *current;
-            *current = (*current)->next;
-            kfree(to_remove);
-            break;
-        }
-        current = &(*current)->next;
-    }
-
-    spinlock_release(&alloc_lock);
-    kfree(ptr);
-}
-
-#define kmalloc(size) debug_kmalloc(size, __FILE__, __LINE__)
-#define kfree(ptr) debug_kfree(ptr)
 ```
 
 ## Best Practices
 
-1. **Always check return values** - Memory allocation can fail
-2. **Free allocated memory** - Prevent memory leaks
-3. **Use appropriate allocation sizes** - Avoid fragmentation
-4. **Consider alignment** - Use page-aligned allocation when needed
-5. **Protect sensitive memory** - Use proper page protection flags
-
-## Memory Layout
-
-### Kernel Space Layout
-
-```
-0xFFFFFFFF80000000 - 0xFFFFFFFF9FFFFFFF : Kernel code and data
-0xFFFFFFFFA0000000 - 0xFFFFFFFFBFFFFFFF : Kernel heap
-0xFFFFFFFFC0000000 - 0xFFFFFFFFFEFFFFFF : Device mappings
-0xFFFFFFFFFF000000 - 0xFFFFFFFFFFFFFFFF : Fixed mappings
-```
-
-### User Space Layout
-
-```
-0x0000000000000000 - 0x0000000000400000 : Reserved
-0x0000000000400000 - 0x0000000000800000 : Program text
-0x0000000000800000 - 0x0000000000C00000 : Program data
-0x0000000000C00000 - 0x000000007FFFFFFF : Program heap
-0x000000007FFFF000 - 0x00007FFFFFFFFFFF : Stack and libraries
-```
+1. **Check return values** - All allocation functions can fail
+2. **Free heap memory** - Prevent memory leaks
+3. **Use appropriate flags** - Set correct page protection
+4. **Avoid fragmentation** - Use appropriate allocation sizes
+5. **Protect device memory** - Use PAGE_PCD for MMIO regions
 
 ## Error Handling
 
-Memory management functions provide clear error indicators:
-
 ```c
 void robust_memory_allocation(void) {
-    void *buffer = kmalloc(1024);
+    void *buffer = malloc(1024);
     if (!buffer) {
-        printf("Memory allocation failed - out of memory\n");
-        // Handle out-of-memory condition
+        printf("Heap allocation failed\n");
         return;
     }
 
-    // Use buffer...
-
-    kfree(buffer);
-}
-
-int safe_memory_operation(void) {
-    uint64_t phys_page = pmm_alloc_page();
-    if (phys_page == 0) {
-        return -ENOMEM;  // No memory available
+    void *pages = vmm_alloc(4, PAGE_PRESENT | PAGE_WRITE);
+    if (!pages) {
+        printf("Virtual allocation failed\n");
+        free(buffer);
+        return;
     }
 
-    int result = vmm_map_page(VIRT_ADDRESS, phys_page, PAGE_PRESENT | PAGE_WRITE);
-    if (result != 0) {
-        pmm_free_page(phys_page);
-        return result;  // Mapping failed
+    void *phys = pmm_alloc_page();
+    if (!phys) {
+        printf("Physical allocation failed\n");
+        free(buffer);
+        return;
     }
 
-    // Success
-    return 0;
+    // Use memory...
+
+    free(buffer);
 }
 ```
-
-## Performance Considerations
-
-- **Minimize fragmentation** - Use appropriate allocation sizes
-- **Cache frequently used pages** - Keep hot data in memory
-- **Use memory pools** - For frequent small allocations
-- **Batch operations** - Allocate multiple pages when possible
-- **Avoid frequent mapping/unmapping** - Keep mappings stable
 
 ## Integration Example
 
 ```c
-#include "cane/mm.h"
+#include <cane/pmm.h>
+#include <cane/vmm.h>
+#include <cane/heap.h>
 
-void init_subsystem(void) {
-    // Allocate memory for subsystem
-    struct subsystem_data *data = kmalloc(sizeof(struct subsystem_data));
-    if (!data) {
-        printf("Failed to allocate subsystem data\n");
-        return;
-    }
+void init_memory_subsystem(void) {
+    // Initialize PMM with memory map from bootloader
+    extern char _kernel_end[];
+    uintptr_t kernel_phys_end = VIRT_TO_PHYS((uintptr_t)_kernel_end);
+    uintptr_t bitmap_phys = (kernel_phys_end + 0x1000) & ~0xFFFULL;
 
-    // Allocate working buffer
-    data->buffer = kmalloc_page(SUBSYSTEM_BUFFER_SIZE);
-    if (!data->buffer) {
-        printf("Failed to allocate working buffer\n");
-        kfree(data);
-        return;
-    }
+    pmm_init((uintptr_t)PHYS_TO_VIRT(bitmap_phys), max_physical_addr);
 
-    // Map hardware registers
-    data->hardware_regs = mm_map_physical(HW_REGISTERS_BASE,
-                                        HW_REGISTERS_SIZE,
-                                        PAGE_PRESENT | PAGE_WRITE);
-    if (!data->hardware_regs) {
-        printf("Failed to map hardware registers\n");
-        kfree(data->buffer);
-        kfree(data);
-        return;
-    }
+    // Initialize VMM
+    vmm_init();
 
-    // Initialize subsystem
-    data->initialized = true;
-
-    // Store for cleanup
-    register_subsystem(data);
+    // Initialize kernel heap
+    heap_init();
 }
 
-void cleanup_subsystem(struct subsystem_data *data) {
+void allocate_resources(void) {
+    // Allocate heap memory for data structures
+    struct my_data *data = malloc(sizeof(struct my_data));
     if (!data) return;
 
-    if (data->hardware_regs) {
-        mm_unmap_physical(data->hardware_regs, HW_REGISTERS_SIZE);
+    // Allocate virtual memory for buffers
+    void *buffer_area = vmm_alloc(8, PAGE_PRESENT | PAGE_WRITE);
+    if (!buffer_area) {
+        free(data);
+        return;
     }
 
-    if (data->buffer) {
-        kfree(data->buffer);
-    }
+    // Use resources...
 
-    kfree(data);
+    // Clean up
+    free(data);
 }
 ```
 
-This memory management system provides a robust foundation for kernel and user space memory operations with proper protection, debugging, and performance optimization.
+This memory management system provides a robust foundation for kernel memory operations with proper protection, allocation tracking, and efficient page management.

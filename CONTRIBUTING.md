@@ -35,7 +35,9 @@ If any output is produced, fix the flagged lines before committing.
 3.  **Create a branch** for your feature (e.g., `git checkout -b feature/driver-x`).
 4.  **Write tests** if applicable.
 5.  **Run the analysis** (`make coccinelle`).
-6.  **Submit a Pull Request** with a detailed description of your changes.
+6.  **Add your name** to CREDITS
+7.  **Add your email** to .mailmap
+8.  **Submit a Pull Request** with a detailed description of your changes.
 
 ## 5. Panic and Debugging
 
