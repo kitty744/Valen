@@ -146,16 +146,10 @@ make menuconfig
 # 2. Build and run with configured settings
 make run
 
-# 3. Or build and run with custom QEMU settings (overrides .config)
-make run-custom -m 8G -smp 4 -soundhw pcspk
-
-# 4. Or run the script directly with arguments
-./scripts/run.sh -m 4G -audiodev none
-
-# 5. Build only (no QEMU)
+# 3. Build only (no QEMU)
 make all
 
-# 6. Clean build artifacts
+# 4. Clean build artifacts
 make clean
 ```
 

@@ -67,6 +67,6 @@ menu "Debugging"
         help
           Tutorial:
           - guest_errors: Logs weird behavior.
-          - int: Logs every interrupt (very spammy!).
+          - int: Logs every interrupt (very spammy).
           - cpu_reset: Logs when the CPU reboots.
 endmenu
