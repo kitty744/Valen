@@ -17,7 +17,7 @@ const int width = 80;
 const int height = 25;
 static uint8_t terminal_attribute = 0x0F;
 
-static spinlock_t lock = {0};
+static spinlock_t lock = SPINLOCK_INIT;
 
 /**
  * @brief Sets the global text color for kprint.
@@ -33,7 +33,7 @@ void set_color(uint8_t color)
  */
 void serial_write(char *s)
 {
-    spinlock_init(&lock);
+    spinlock_acquire(&lock);
     while (*s)
     {
         outb(0x3f8, *s++);
@@ -82,7 +82,7 @@ void update_cursor(int x, int y)
  */
 void set_cursor(int x, int y)
 {
-    spinlock_init(&lock);
+    spinlock_acquire(&lock);
     cursor_x = x;
     cursor_y = y;
     update_cursor(cursor_x, cursor_y);
@@ -105,7 +105,7 @@ void enable_cursor(uint8_t cursor_start, uint8_t cursor_end)
  */
 void print_clear()
 {
-    spinlock_init(&lock);
+    spinlock_acquire(&lock);
     uint16_t blank = (uint16_t)' ' | ((uint16_t)terminal_attribute << 8);
     for (int i = 0; i < width * height; i++)
     {
@@ -124,6 +124,8 @@ void print_clear()
  */
 void print_newline()
 {
+    spinlock_acquire(&lock);
+    
     cursor_x = 0;
     if (cursor_y < height - 1)
     {
@@ -148,6 +150,8 @@ void print_newline()
         cursor_y = height - 1;
     }
     update_cursor(cursor_x, cursor_y);
+    
+    spinlock_release(&lock);
 }
 
 void puts(const char *str)
@@ -163,19 +167,20 @@ void puts(const char *str)
  */
 void putc(char c)
 {
-    spinlock_init(&lock);
+    spinlock_acquire(&lock);
+    
     if (c == '\n')
     {
         spinlock_release(&lock);
-        print_newline();
+        print_newline();  // print_newline() has its own lock
         return;
     }
 
     if (cursor_x >= width)
     {
         spinlock_release(&lock);
-        print_newline();
-        spinlock_init(&lock);
+        print_newline();  // print_newline() has its own lock
+        spinlock_acquire(&lock);
     }
 
     uint8_t uc = (uint8_t)c;
@@ -292,12 +297,13 @@ void print_uint(uint64_t num)
     char buffer[32];
     int i = 0;
 
-    while (num > 0)
+    while (num > 0 && i < 31)  // Prevent buffer overflow
     {
         buffer[i++] = '0' + (num % 10);
         num /= 10;
     }
 
+    // Print in reverse order (most significant digit first)
     while (i > 0)
     {
         putc(buffer[--i]);
@@ -319,7 +325,7 @@ void print_int(uint64_t n)
         buf[i--] = (n % 10) + '0';
         n /= 10;
     }
-    printf(&buf[i + 1]);
+    puts(&buf[i + 1]);  // Use puts instead of printf to avoid recursion
 }
 
 void print_hex(uint64_t n)
@@ -332,8 +338,9 @@ void print_hex(uint64_t n)
         buf[i] = chars[n & 0xF];
         n >>= 4;
     }
-    printf("0x");
-    printf(buf);
+    putc('0');
+    putc('x');
+    puts(buf);  // Use puts instead of printf to avoid recursion
 }
 
 void print_hex_upper(uint64_t num)
@@ -347,13 +354,14 @@ void print_hex_upper(uint64_t num)
     char buffer[32];
     int i = 0;
 
-    while (num > 0)
+    while (num > 0 && i < 31)  // Prevent buffer overflow
     {
         int digit = num % 16;
         buffer[i++] = (digit < 10) ? ('0' + digit) : ('A' + digit - 10);
         num /= 16;
     }
 
+    // Print in reverse order (most significant digit first)
     while (i > 0)
     {
         putc(buffer[--i]);
@@ -371,12 +379,13 @@ void print_octal(uint64_t num)
     char buffer[32];
     int i = 0;
 
-    while (num > 0)
+    while (num > 0 && i < 31)  // Prevent buffer overflow
     {
         buffer[i++] = '0' + (num % 8);
         num /= 8;
     }
 
+    // Print in reverse order (most significant digit first)
     while (i > 0)
     {
         putc(buffer[--i]);
@@ -394,12 +403,13 @@ void print_binary(uint64_t num)
     char buffer[64];
     int i = 0;
 
-    while (num > 0)
+    while (num > 0 && i < 63)  // Prevent buffer overflow
     {
         buffer[i++] = '0' + (num % 2);
         num /= 2;
     }
 
+    // Print in reverse order (most significant digit first)
     while (i > 0)
     {
         putc(buffer[--i]);
@@ -445,7 +455,7 @@ void show_hardware_cursor()
 
 void print_backspace()
 {
-    spinlock_init(&lock);
+    spinlock_acquire(&lock);
     if (cursor_x > 0)
     {
         cursor_x--;

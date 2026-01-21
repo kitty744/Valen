@@ -63,8 +63,11 @@ char *strncpy(char *dest, const char *src, uint64_t n) {
     for (i = 0; i < n && src[i] != '\0'; i++) {
         dest[i] = src[i];
     }
-    for (; i < n; i++) {
-        dest[i] = '\0';
+    // Only pad with nulls if there's space left AND source was shorter than n
+    if (i < n && src[i] == '\0') {
+        for (; i < n; i++) {
+            dest[i] = '\0';
+        }
     }
     return dest;
 }

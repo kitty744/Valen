@@ -74,6 +74,9 @@ Comprehensive documentation is available in the `docs/` directory to help contri
 ### Kernel Documentation
 
 - **[Boot Process](docs/code/kernel/BOOT.md)** - System startup and initialization sequence
+- **[Tasking System](docs/code/kernel/TASKING.md)** - Task management and scheduling
+- **[Timer System](docs/code/kernel/TIMER.md)** - System timer and interrupt handling
+- **[Spinlock API](docs/code/kernel/SPINLOCK.md)** - Low-level synchronization primitives and usage guidelines
 
 ## License
 

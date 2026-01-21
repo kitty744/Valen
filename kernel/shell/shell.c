@@ -13,6 +13,7 @@
 #include <valen/pmm.h>
 #include <valen/heap.h>
 #include <valen/task.h>
+#include <valen/spinlock.h>
 
 #define MAX_BUFFER 256
 #define PROMPT "valen >> "
@@ -22,6 +23,7 @@ static char input_buffer[MAX_BUFFER];
 static int buffer_len = 0;
 static int cursor_idx = 0;
 static int prompt_start_y = 1;
+static spinlock_t shell_lock = SPINLOCK_INIT;
 
 /**
  * @brief Resets shell state and initializes prompt.
@@ -31,6 +33,8 @@ static int prompt_start_y = 1;
  */
 void shell_init()
 {
+    spinlock_acquire(&shell_lock);
+    
     memset(input_buffer, 0, MAX_BUFFER);
     buffer_len = 0;
     cursor_idx = 0;
@@ -40,6 +44,8 @@ void shell_init()
 
     prompt_start_y = get_cursor_y();
     puts(PROMPT);
+    
+    spinlock_release(&shell_lock);
 }
 
 /**
@@ -110,11 +116,19 @@ static void parse_command(const char *input, char *cmd, char *arg) {
     const char *space = strchr(input, ' ');
     if (space) {
         size_t cmd_len = space - input;
+        // Prevent buffer overflow
+        if (cmd_len >= 32) cmd_len = 31;
         strncpy(cmd, input, cmd_len);
         cmd[cmd_len] = '\0';
         strcpy(arg, space + 1);
     } else {
-        strcpy(cmd, input);
+        // Prevent buffer overflow
+        if (strlen(input) >= 32) {
+            strncpy(cmd, input, 31);
+            cmd[31] = '\0';
+        } else {
+            strcpy(cmd, input);
+        }
         arg[0] = '\0';
     }
 }
@@ -258,12 +272,29 @@ static void cmd_reboot(const char *arg) {
  */
 void shell_input(signed char c)
 {
+    spinlock_acquire(&shell_lock);
+    
     if (c == '\n')
     {
         input_buffer[buffer_len] = '\0';
         puts("\n");
-        process_command(input_buffer);
+        
+        // Copy command to local buffer before releasing lock
+        char cmd_copy[MAX_BUFFER];
+        strcpy(cmd_copy, input_buffer);
+        
+        // Reset buffer state before releasing lock
+        memset(input_buffer, 0, MAX_BUFFER);
+        buffer_len = 0;
+        cursor_idx = 0;
+        
+        spinlock_release(&shell_lock);
+        
+        process_command(cmd_copy);
+        
+        // Re-initialize shell for next command
         shell_init();
+        return;
     }
     else if (c == '\b' && cursor_idx > 0)
     {
@@ -275,16 +306,19 @@ void shell_input(signed char c)
         buffer_len--;
         cursor_idx--;
         
+        spinlock_release(&shell_lock);
         redraw_line();
     }
     else if (c == -1 && cursor_idx > 0)  // Left arrow
     {
         cursor_idx--;
+        spinlock_release(&shell_lock);
         redraw_line();
     }
     else if (c == -2 && cursor_idx < buffer_len)  // Right arrow
     {
         cursor_idx++;
+        spinlock_release(&shell_lock);
         redraw_line();
     }
     else if (c >= 32 && c <= 126 && buffer_len < MAX_BUFFER - 1)
@@ -297,7 +331,22 @@ void shell_input(signed char c)
         input_buffer[cursor_idx] = (char)c;
         buffer_len++;
         cursor_idx++;
+        
+        // Prevent buffer overflow
+        if (buffer_len >= MAX_BUFFER) {
+            buffer_len = MAX_BUFFER - 1;
+            input_buffer[buffer_len] = '\0';
+        }
+        if (cursor_idx >= MAX_BUFFER) {
+            cursor_idx = MAX_BUFFER - 1;
+        }
+        
+        spinlock_release(&shell_lock);
         redraw_line();
+    }
+    else
+    {
+        spinlock_release(&shell_lock);
     }
 }
 

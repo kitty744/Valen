@@ -2,11 +2,16 @@
 #include <valen/heap.h>
 #include <valen/stdio.h>
 #include <valen/string.h>
+#include <valen/spinlock.h>
 
 // Global task management
 task_t *current_task = NULL;
 static task_t *runqueue = NULL;
 static pid_t next_pid = 1;
+static spinlock_t runqueue_lock = SPINLOCK_INIT;
+static spinlock_t current_task_lock = SPINLOCK_INIT;
+static volatile uint8_t need_schedule = 0;
+static volatile uint8_t tasks_exist = 0;
 
 // Assembly context switch function
 extern void switch_to(task_context_t *prev, task_context_t *next);
@@ -18,12 +23,16 @@ void scheduler_init(void) {
     current_task = NULL;
     runqueue = NULL;
     next_pid = 1;
+    need_schedule = 0;
+    tasks_exist = 0;
 }
 
 /**
  * @brief Add task to runqueue
  */
 void add_task_to_runqueue(task_t *task) {
+    spinlock_acquire(&runqueue_lock);
+    
     if (!runqueue) {
         runqueue = task;
         task->next = task;
@@ -36,17 +45,26 @@ void add_task_to_runqueue(task_t *task) {
         runqueue->prev = task;
         runqueue = task;
     }
+    
+    tasks_exist = 1;  // Set flag that tasks exist
+    spinlock_release(&runqueue_lock);
 }
 
 /**
  * @brief Remove task from runqueue
  */
 void remove_task_from_runqueue(task_t *task) {
-    if (!task || !runqueue) return;
+    spinlock_acquire(&runqueue_lock);
+    
+    if (!task || !runqueue) {
+        spinlock_release(&runqueue_lock);
+        return;
+    }
     
     if (task->next == task) {
         // Only task in queue
         runqueue = NULL;
+        tasks_exist = 0;  // No tasks exist
     } else {
         task->prev->next = task->next;
         task->next->prev = task->prev;
@@ -56,6 +74,8 @@ void remove_task_from_runqueue(task_t *task) {
     }
     task->next = NULL;
     task->prev = NULL;
+    
+    spinlock_release(&runqueue_lock);
 }
 
 /**
@@ -138,7 +158,12 @@ task_t *task_create(void (*func)(void), const char *name) {
  * @brief Exit current task
  */
 void task_exit(long exit_code) {
-    if (!current_task) return;
+    spinlock_acquire(&current_task_lock);
+    
+    if (!current_task) {
+        spinlock_release(&current_task_lock);
+        return;
+    }
     
     printf("Task '%s' (PID %d) exiting with code %ld\n", 
            current_task->comm, current_task->pid, exit_code);
@@ -146,10 +171,13 @@ void task_exit(long exit_code) {
     current_task->state = TASK_ZOMBIE;
     current_task->exit_code = exit_code;
     
-    // Remove from runqueue
-    remove_task_from_runqueue(current_task);
+    // Save current_task pointer before releasing lock
+    task_t *exiting_task = current_task;
     
-    // Schedule next task
+    spinlock_release(&current_task_lock);
+    
+    // Remove from runqueue and schedule next task
+    remove_task_from_runqueue(exiting_task);
     schedule();
 }
 
@@ -157,10 +185,17 @@ void task_exit(long exit_code) {
  * @brief Core scheduler
  */
 void schedule(void) {
-    if (!runqueue) return;
+    spinlock_acquire(&runqueue_lock);
+    spinlock_acquire(&current_task_lock);
+    
+    if (!runqueue) {
+        spinlock_release(&current_task_lock);
+        spinlock_release(&runqueue_lock);
+        return;
+    }
     
     task_t *next = NULL;
-    task_t *prev = current_task;
+    task_t *old_current = current_task;
     
     // Find next runnable task
     if (!current_task) {
@@ -173,9 +208,12 @@ void schedule(void) {
     }
     
     if (next && next != current_task) {
-        
-        task_t *old_current = current_task;
+        // Update current_task while holding both locks
         current_task = next;
+        
+        // Release both locks before context switch
+        spinlock_release(&current_task_lock);
+        spinlock_release(&runqueue_lock);
         
         // Perform context switch
         if (old_current) {
@@ -190,6 +228,9 @@ void schedule(void) {
                 : "memory"
             );
         }
+    } else {
+        spinlock_release(&current_task_lock);
+        spinlock_release(&runqueue_lock);
     }
 }
 
@@ -197,7 +238,10 @@ void schedule(void) {
  * @brief Timer tick handler for scheduler
  */
 void scheduler_tick(void) {
-    if (!current_task) return;
+    // Don't acquire locks in interrupt context
+    // Just check if tasks exist and set scheduling flag
+    
+    if (!tasks_exist) return;
     
     // Simple time slice management
     static int counter = 0;
@@ -206,7 +250,7 @@ void scheduler_tick(void) {
     // Schedule every 25 ticks (0.5 seconds at 50Hz)
     if (counter >= 25) {
         counter = 0;
-        schedule();
+        need_schedule = 1;  // Set flag for deferred scheduling
     }
 }
 
@@ -214,38 +258,58 @@ void scheduler_tick(void) {
  * @brief Get current task
  */
 task_t *get_current_task(void) {
-    return current_task;
+    spinlock_acquire(&current_task_lock);
+    task_t *task = current_task;
+    spinlock_release(&current_task_lock);
+    return task;
 }
 
 /**
  * @brief Get current PID
  */
 pid_t get_current_pid(void) {
-    return current_task ? current_task->pid : -1;
+    spinlock_acquire(&current_task_lock);
+    pid_t pid = current_task ? current_task->pid : -1;
+    spinlock_release(&current_task_lock);
+    return pid;
 }
 
 /**
  * @brief Yield CPU to next task
  */
 void yield(void) {
-    schedule();
+    if (need_schedule) {
+        need_schedule = 0;
+        schedule();
+    }
 }
 
 /**
  * @brief Find task by PID
  */
 task_t *find_task_by_pid(pid_t pid) {
-    if (!runqueue || pid <= 0) return NULL;
+    if (pid <= 0) return NULL;
+    
+    spinlock_acquire(&runqueue_lock);
+    
+    if (!runqueue) {
+        spinlock_release(&runqueue_lock);
+        return NULL;
+    }
     
     task_t *current = runqueue;
+    task_t *found = NULL;
+    
     do {
         if (current->pid == pid) {
-            return current;
+            found = current;
+            break;
         }
         current = current->next;
     } while (current != runqueue);
     
-    return NULL;
+    spinlock_release(&runqueue_lock);
+    return found;
 }
 
 /**
@@ -254,17 +318,51 @@ task_t *find_task_by_pid(pid_t pid) {
 int kill_task(pid_t pid) {
     if (pid <= 0) return -1;
     
-    task_t *target = find_task_by_pid(pid);
-    if (!target) return -1;
+    spinlock_acquire(&runqueue_lock);
+    
+    task_t *target = NULL;
+    task_t *current = runqueue;
+    
+    if (runqueue) {
+        do {
+            if (current->pid == pid) {
+                target = current;
+                break;
+            }
+            current = current->next;
+        } while (current != runqueue);
+    }
+    
+    if (!target) {
+        spinlock_release(&runqueue_lock);
+        return -1;
+    }
     
     // Don't allow killing current task
-    if (target == current_task) return -2;
+    if (target == current_task) {
+        spinlock_release(&runqueue_lock);
+        return -2;
+    }
     
     // Mark as zombie and remove from runqueue
     target->state = TASK_ZOMBIE;
-    remove_task_from_runqueue(target);
     
-    // Free the task's resources
+    if (target->next == target) {
+        // Only task in queue
+        runqueue = NULL;
+    } else {
+        target->prev->next = target->next;
+        target->next->prev = target->prev;
+        if (runqueue == target) {
+            runqueue = target->next;
+        }
+    }
+    target->next = NULL;
+    target->prev = NULL;
+    
+    spinlock_release(&runqueue_lock);
+    
+    // Free the task's resources (safe to do outside lock)
     if (target->stack) {
         free(target->stack);
     }
