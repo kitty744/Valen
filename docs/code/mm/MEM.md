@@ -1,10 +1,10 @@
 # Memory Management
 
-The Memory Management system provides physical memory allocation, virtual memory management, and kernel heap allocation for ValenOS.
+The Memory Management system provides physical memory allocation, virtual memory management, and kernel heap allocation for Valen.
 
 ## Overview
 
-ValenOS uses a four-tier memory management system: Physical Memory Manager (PMM) for tracking physical pages, Paging system for hardware page table management, Virtual Memory Manager (VMM) for address translation, and a kernel heap for dynamic allocation.
+Valen uses a four-tier memory management system: Physical Memory Manager (PMM) for tracking physical pages, Paging system for hardware page table management, Virtual Memory Manager (VMM) for address translation, and a kernel heap for dynamic allocation.
 
 ## Quick Start
 

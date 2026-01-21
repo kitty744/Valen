@@ -1,6 +1,6 @@
 # String Library
 
-The String library provides essential string manipulation and memory operations for ValenOS kernel development.
+The String library provides essential string manipulation and memory operations for Valen kernel development.
 
 ## Overview
 
@@ -15,7 +15,7 @@ void kernel_main(void) {
     char buffer[256];
 
     // String operations
-    strcpy(buffer, "Hello, ValenOS!");
+    strcpy(buffer, "Hello, Valen!");
 
     // Length operations
     int len = strlen(buffer);
@@ -338,7 +338,7 @@ void memory_example(void) {
         memset(data, 0, 1024);
 
         // Copy pattern
-        char pattern[] = "ValenOS";
+        char pattern[] = "Valen";
         memcpy(data, pattern, sizeof(pattern));
 
         // Use data...

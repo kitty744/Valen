@@ -1,6 +1,6 @@
 /**
  * @file keyboard.c
- * @brief PS/2 Keyboard Driver for ValenOS.
+ * @brief PS/2 Keyboard Driver for Valen.
  */
 
 #include <Valen/keyboard.h>

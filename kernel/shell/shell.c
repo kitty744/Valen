@@ -1,6 +1,6 @@
 /**
  * @file shell.c
- * @brief ValenOS Interactive Shell
+ * @brief Valen Interactive Shell
  * * Provides a command-line interface for system interaction. This module
  * manages a local input buffer, handles character insertion/deletion,
  * and interfaces with the VGA driver to provide a flicker-free experience

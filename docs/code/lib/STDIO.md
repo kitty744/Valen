@@ -1,10 +1,10 @@
 # STDIO Library
 
-The STDIO library provides VGA text mode output, serial communication, and formatted printing capabilities for ValenOS.
+The STDIO library provides VGA text mode output, serial communication, and formatted printing capabilities for Valen.
 
 ## Overview
 
-The STDIO library is the primary interface for kernel output in ValenOS. It supports both VGA text mode display for user interaction and serial port output for debugging. The library includes a powerful printf implementation with extensive formatting options.
+The STDIO library is the primary interface for kernel output in Valen. It supports both VGA text mode display for user interaction and serial port output for debugging. The library includes a powerful printf implementation with extensive formatting options.
 
 ## Quick Start
 
@@ -16,7 +16,7 @@ void kernel_main(void) {
     set_color(0x0F); // White text on black background
 
     // Basic output
-    printf("Hello, ValenOS!\n");
+    printf("Hello, Valen!\n");
 
     // Formatted output
     printf("System initialized: %d MB RAM\n", memory_size);
@@ -187,7 +187,7 @@ void init_display(void) {
     // Set up status bar
     set_cursor(0, 0);
     set_color(COLOR_BLACK | COLOR_BG_LIGHT_GREY);
-    printf("ValenOS v1.0 - Ready");
+    printf("Valen v1.0 - Ready");
 
     // Reset to user area
     set_color(COLOR_WHITE | COLOR_BG_BLACK);

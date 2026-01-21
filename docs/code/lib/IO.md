@@ -1,6 +1,6 @@
 # I/O Library
 
-The I/O library provides low-level hardware port access for device communication in ValenOS.
+The I/O library provides low-level hardware port access for device communication in Valen.
 
 ## Overview
 

@@ -1,10 +1,10 @@
-# ValenOS
+# Valen
 
 A modern x86_64 operating system built from scratch with comprehensive hardware compatibility and a retro GUI aesthetic.
 
 ## Overview
 
-ValenOS is an operating system designed to run on both old and new hardware.
+Valen is an operating system designed to run on both old and new hardware.
 
 ## Build Requirements
 
@@ -85,4 +85,4 @@ This project is open source. See LICENSE file for details.
 
 ---
 
-**ValenOS** - Building the future of retro computing with modern technology.
+**Valen** - Building the future of retro computing with modern technology.

@@ -1,10 +1,10 @@
 # Boot Process
 
-The ValenOS boot process handles system initialization from bootloader handoff to kernel startup.
+The Valen boot process handles system initialization from bootloader handoff to kernel startup.
 
 ## Overview
 
-ValenOS uses the Multiboot2 specification for bootloader compatibility. The boot process initializes hardware, sets up memory management, establishes interrupt handling, and starts the shell interface.
+Valen uses the Multiboot2 specification for bootloader compatibility. The boot process initializes hardware, sets up memory management, establishes interrupt handling, and starts the shell interface.
 
 ## Boot Sequence
 

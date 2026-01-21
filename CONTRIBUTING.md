@@ -1,6 +1,6 @@
-# Contributing to ValenOS
+# Contributing to Valen
 
-Thank you for your interest in ValenOS! Developing a kernel requires strict adherence to memory safety and code style to prevent system-wide instability.
+Thank you for your interest in Valen! Developing a kernel requires strict adherence to memory safety and code style to prevent system-wide instability.
 
 ## 1. Code Style
 
@@ -10,7 +10,7 @@ Thank you for your interest in ValenOS! Developing a kernel requires strict adhe
 
 ## 2. Memory Management (The Golden Rules)
 
-ValenOS uses a custom heap and VMM. To keep the system stable:
+Valen uses a custom heap and VMM. To keep the system stable:
 
 - **NULL Checks:** Every `malloc()` or `vmm_alloc()` call **MUST** be followed by a NULL check.
 - **Locking:** If you acquire the `heap_lock` or any `spinlock_t`, you must release it on every possible exit path of the function.

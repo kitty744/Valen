@@ -1,6 +1,6 @@
 /**
  * @file idt.c
- * @brief Interrupt Descriptor Table (IDT) Management for ValenOS.
+ * @brief Interrupt Descriptor Table (IDT) Management for Valen.
  *
  * This module initializes the IDT, which is the mechanism the x86_64 CPU uses
  * to handle exceptions and hardware interrupts. It maps assembly-level

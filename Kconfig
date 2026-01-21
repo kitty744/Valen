@@ -1,4 +1,4 @@
-mainmenu "ValenOS Configuration"
+mainmenu "Valen Configuration"
 
 menu "Processor and Memory"
     config MEM_SIZE

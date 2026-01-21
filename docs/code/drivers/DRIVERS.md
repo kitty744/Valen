@@ -1,10 +1,10 @@
 # Device Drivers
 
-The Device Driver system in ValenOS provides basic hardware support for essential input devices.
+The Device Driver system in Valen provides basic hardware support for essential input devices.
 
 ## Overview
 
-ValenOS currently includes a simple driver system focused on essential kernel functionality. The primary driver implemented is the PS/2 keyboard driver, which provides input for the shell interface.
+Valen currently includes a simple driver system focused on essential kernel functionality. The primary driver implemented is the PS/2 keyboard driver, which provides input for the shell interface.
 
 ## Available Drivers
 
@@ -102,7 +102,7 @@ pic_send_eoi(IRQ_KEYBOARD);
 
 ### Initialization Pattern
 
-Most drivers in ValenOS follow this initialization pattern:
+Most drivers in Valen follow this initialization pattern:
 
 ```c
 void driver_init(void) {
@@ -140,7 +140,7 @@ void driver_handler(void) {
 
 ### Basic Driver Template
 
-To add a new driver to ValenOS:
+To add a new driver to Valen:
 
 1. **Create header file** (`include/Valen/new_device.h`):
 

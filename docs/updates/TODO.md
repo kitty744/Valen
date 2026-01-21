@@ -1,4 +1,4 @@
-# ValenOS TODO List
+# Valen TODO List
 
 ## Version 1.1.0 - Core System Features
 
