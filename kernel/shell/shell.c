@@ -15,6 +15,7 @@
 #include <valen/task.h>
 #include <valen/spinlock.h>
 #include <valen/color.h>
+#include <valen/keyboard.h>
 
 #define MAX_BUFFER 256
 #define PROMPT "valen >> "
@@ -365,6 +366,6 @@ void shell_task_main(void) {
     shell_init();
     
     while (1) {
-        yield();
+        process_pending_key();
     }
 }

@@ -51,23 +51,27 @@ void *vmm_alloc(uint64_t pages, uint64_t flags)
 {
     spinlock_acquire(&vmm_lock);
     
-    static uintptr_t next_alloc_addr = 0xFFFFFFFFB0000000;
-
-    uintptr_t start_addr = next_alloc_addr;
-    
-    for (uint64_t i = 0; i < pages; i++)
-    {
-        void *phys = pmm_alloc_page();
-        if (!phys)
-        {
-            spinlock_release(&vmm_lock);
-            return 0;
-        }
-        paging_map(next_alloc_addr, (uintptr_t)phys, flags);
-        asm volatile("invlpg (%0)" : : "r"(next_alloc_addr) : "memory");
-        next_alloc_addr += 4096;
+    // Allocate contiguous physical pages first
+    void *phys_pages = pmm_alloc_pages(pages);
+    if (!phys_pages) {
+        spinlock_release(&vmm_lock);
+        return 0;
     }
-
+    
+    // Find a free virtual address range
+    // For now, use a simple allocator starting from a base address
+    static uintptr_t next_virt_addr = 0xFFFFFFFFC0000000;
+    uintptr_t start_addr = next_virt_addr;
+    
+    // Map each page
+    for (uint64_t i = 0; i < pages; i++) {
+        uintptr_t virt = next_virt_addr + (i * 4096);
+        uintptr_t phys = (uintptr_t)phys_pages + (i * 4096);
+        paging_map(virt, phys, flags);
+        asm volatile("invlpg (%0)" : : "r"(virt) : "memory");
+    }
+    
+    next_virt_addr += pages * 4096;
     spinlock_release(&vmm_lock);
     return (void *)start_addr;
 }

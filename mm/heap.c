@@ -19,12 +19,13 @@ static spinlock_t heap_lock = SPINLOCK_INIT;
 
 void heap_init()
 {
-    // Use static heap area for kernel memory management
-    static char heap_area[4096] __attribute__((aligned(4096)));
+    // Use larger static heap area for kernel memory management
+    // 16KB initial heap should support multiple tasks
+    static char heap_area[16384] __attribute__((aligned(4096)));
 
     head = (heap_node_t *)heap_area;
     head->magic = HEAP_MAGIC;
-    head->size = 4096 - sizeof(heap_node_t);
+    head->size = 16384 - sizeof(heap_node_t);
     head->next = 0;
     head->free = 1;
 }

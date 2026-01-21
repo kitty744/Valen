@@ -25,6 +25,10 @@
  */
 #define ENTRY_TO_PHYS(entry) ((uint64_t)(entry) & ~0xFFF)
 
+/** * @brief Helper to convert virtual to physical address.
+ */
+#define VIRT_TO_PHYS(v) ((uint64_t)(v) - KERNEL_VIRT_OFFSET)
+
 /** @brief Pointer to the top-level Page Map Level 4 table. */
 extern uint64_t p4_table[];
 
@@ -72,8 +76,9 @@ void paging_map(uint64_t virt, uint64_t phys, uint64_t flags)
     /* 1. PML4 -> PDPT */
     if (!(kernel_pml4[pml4_idx] & 1))
     {
-        uint64_t new_phys = (uint64_t)pmm_alloc_page();
-        uint64_t *pdpt = (uint64_t *)PHYS_TO_VIRT(new_phys);
+        void *new_virt = pmm_alloc_page();
+        uint64_t new_phys = VIRT_TO_PHYS(new_virt);
+        uint64_t *pdpt = (uint64_t *)new_virt;
         for (int i = 0; i < 512; i++)
             pdpt[i] = 0;
 
@@ -85,8 +90,9 @@ void paging_map(uint64_t virt, uint64_t phys, uint64_t flags)
     /* 2. PDPT -> PD */
     if (!(pdpt[pdpt_idx] & 1))
     {
-        uint64_t new_phys = (uint64_t)pmm_alloc_page();
-        uint64_t *pd = (uint64_t *)PHYS_TO_VIRT(new_phys);
+        void *new_virt = pmm_alloc_page();
+        uint64_t new_phys = VIRT_TO_PHYS(new_virt);
+        uint64_t *pd = (uint64_t *)new_virt;
         for (int i = 0; i < 512; i++)
             pd[i] = 0;
 
@@ -98,8 +104,9 @@ void paging_map(uint64_t virt, uint64_t phys, uint64_t flags)
     /* 3. PD -> PT */
     if (!(pd[pd_idx] & 1))
     {
-        uint64_t new_phys = (uint64_t)pmm_alloc_page();
-        uint64_t *pt = (uint64_t *)PHYS_TO_VIRT(new_phys);
+        void *new_virt = pmm_alloc_page();
+        uint64_t new_phys = VIRT_TO_PHYS(new_virt);
+        uint64_t *pt = (uint64_t *)new_virt;
         for (int i = 0; i < 512; i++)
             pt[i] = 0;
 

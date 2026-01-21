@@ -1,10 +1,10 @@
 # Memory Management
 
-The Memory Management system provides physical memory allocation, virtual memory management, and kernel heap allocation for Valen.
+The Memory Management system provides fully dynamic physical memory allocation, virtual memory management, and kernel heap allocation for Valen with support for any RAM size from 10MB to 15GB+.
 
 ## Overview
 
-Valen uses a four-tier memory management system: Physical Memory Manager (PMM) for tracking physical pages, Paging system for hardware page table management, Virtual Memory Manager (VMM) for address translation, and a kernel heap for dynamic allocation.
+Valen uses a completely dynamic four-tier memory management system: Physical Memory Manager (PMM) for tracking physical pages with contiguous allocation support, Paging system for hardware page table management, Virtual Memory Manager (VMM) for dynamic address translation, and a kernel heap for dynamic allocation with automatic expansion.
 
 ## Quick Start
 
@@ -66,6 +66,7 @@ pmm_init((uintptr_t)PHYS_TO_VIRT(bitmap_phys), max_physical_addr);
 
 ```c
 void *pmm_alloc_page(void);
+void *pmm_alloc_pages(uint64_t count);
 void pmm_free_page(void *addr);
 void pmm_mark_free(uintptr_t addr);
 void pmm_mark_used(uintptr_t addr);
@@ -74,7 +75,7 @@ void pmm_mark_used(uintptr_t addr);
 **Example:**
 
 ```c
-// Allocate a physical page
+// Allocate a single physical page
 void *page = pmm_alloc_page();
 if (page) {
     // Use the physical page
@@ -82,6 +83,16 @@ if (page) {
 
     // Free when done
     pmm_free_page(page);
+}
+
+// Allocate multiple contiguous pages
+void *pages = pmm_alloc_pages(4);
+if (pages) {
+    // Use 4 contiguous pages (16KB)
+    printf("Allocated 4 pages at: 0x%p\n", pages);
+
+    // Free when done
+    pmm_free_page(pages);
 }
 ```
 
@@ -306,21 +317,15 @@ if (phys) {
 
 ### VMM Implementation Details
 
-The VMM uses standard x86_64 page table structures:
-
-```c
-// Page table indices for address translation
-uint64_t pml4_idx = (virtual_addr >> 39) & 0x1FF;
-uint64_t pdpt_idx = (virtual_addr >> 30) & 0x1FF;
-uint64_t pd_idx  = (virtual_addr >> 21) & 0x1FF;
-uint64_t pt_idx  = (virtual_addr >> 12) & 0x1FF;
-```
+The VMM uses dynamic allocation with proper address translation:
 
 **Features:**
 
-- Supports 4KB, 2MB, and 1GB pages
+- Dynamic virtual address allocation
+- Contiguous physical page allocation
 - Automatic TLB invalidation
 - Thread-safe with spinlock protection
+- Support for any RAM size (10MB to 15GB+)
 
 ## Kernel Heap
 
@@ -374,6 +379,8 @@ typedef struct heap_node {
 - 8-byte alignment for all allocations
 - Magic number validation for corruption detection
 - Thread-safe with spinlock protection
+- Dynamic expansion via page allocation
+- 16KB initial heap for multiple task support
 
 ## Memory Layout
 

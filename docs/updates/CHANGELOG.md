@@ -54,9 +54,11 @@ _Note: Version 1.0.1 represents the stable shell implementation with all critica
 
 **Memory Management:**
 
-- Fixed heap allocation with static 4KB heap area
-- Resolved VMM memory mapping issues
-- Improved task stack allocation and management
+- Enhanced heap allocation with fragmentation handling
+- Implement garbage collection for unused memory
+- Add memory protection mechanisms
+- Create memory mapping for processes
+- Implement virtual memory management improvements
 
 **Code Cleanup:**
 

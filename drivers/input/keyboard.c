@@ -11,6 +11,7 @@
 extern int system_ready;
 
 volatile int key_pressed_flag;
+static char pending_key = 0;
 
 static int shift_pressed = 0;
 
@@ -66,23 +67,23 @@ void keyboard_handler()
             if (system_ready) {
                 switch (scancode) {
                 case 0x0E:
-                    shell_input('\b');
+                    pending_key = '\b';
                     break;
                 case 0x1C:
-                    shell_input('\n');
+                    pending_key = '\n';
                     break;
                 case 0x4B:
-                    shell_input(-1);
+                    pending_key = -1;
                     break;
                 case 0x4D:
-                    shell_input(-2);
+                    pending_key = -2;
                     break;
                 default:
                     /* Only process ASCII characters for valid scancodes */
                     if (scancode < sizeof(scancode_to_ascii)) {
                         char c = shift_pressed ? scancode_to_ascii_shift[scancode] : scancode_to_ascii[scancode];
                         if (c && c != '\0') {
-                            shell_input(c);
+                            pending_key = c;
                         }
                     }
                     break;
@@ -92,4 +93,11 @@ void keyboard_handler()
     }
 
     pic_send_eoi(IRQ_KEYBOARD);
+}
+
+void process_pending_key(void) {
+    if (pending_key != 0) {
+        shell_input(pending_key);
+        pending_key = 0;
+    }
 }

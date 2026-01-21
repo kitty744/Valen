@@ -110,7 +110,7 @@ task_t *task_create(void (*func)(void), const char *name) {
     }
     
     // Allocate kernel stack
-    task->stack_size = 3072;
+    task->stack_size = 8192;
     task->stack = malloc(task->stack_size);
     if (!task->stack) {
         free(task);
@@ -123,7 +123,16 @@ task_t *task_create(void (*func)(void), const char *name) {
     // Align stack to 16-byte boundary
     stack_top = (uint64_t*)((uint64_t)stack_top & ~0xF);
     
-    // Set up context structure directly - no need for complex stack frame
+    // Push initial values that context switch expects to pop
+    // The context switch will pop: r15, r14, r13, r12, rbx, rbp
+    *--stack_top = 0;  // r15
+    *--stack_top = 0;  // r14  
+    *--stack_top = 0;  // r13
+    *--stack_top = 0;  // r12
+    *--stack_top = 0;  // rbx
+    *--stack_top = 0;  // rbp
+    
+    // Set up context structure
     task->context.rsp = (uint64_t)stack_top;
     task->context.rip = (uint64_t)func;
     task->context.cs = 0x08;

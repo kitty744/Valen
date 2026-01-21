@@ -1,10 +1,12 @@
 
-#include <valen/paging.h>
 #include <valen/pmm.h>
+#include <valen/paging.h>
 #include <valen/spinlock.h>
 
 /* The offset used to access physical memory in the higher half */
 #define KERNEL_VIRT_OFFSET 0xFFFFFFFF80000000
+#define PHYS_TO_VIRT(p) ((void *)((uint64_t)(p) + KERNEL_VIRT_OFFSET))
+#define VIRT_TO_PHYS(v) ((uint64_t)(v) - KERNEL_VIRT_OFFSET)
 
 static uint8_t *bitmap;
 static uint64_t bitmap_size;
@@ -101,9 +103,52 @@ void *pmm_alloc_page()
                     used_pages++;
 
                     spinlock_release(&pmm_lock);
-                    /* Returns the RAW PHYSICAL address */
-                    return (void *)addr;
+                    /* Return virtual address that can be used by kernel */
+                    return PHYS_TO_VIRT(addr);
                 }
+            }
+        }
+    }
+    
+    spinlock_release(&pmm_lock);
+    return 0;
+}
+
+/**
+ * @brief Allocates multiple contiguous physical pages
+ */
+void *pmm_alloc_pages(uint64_t count)
+{
+    spinlock_acquire(&pmm_lock);
+    
+    // Find enough contiguous free pages
+    for (uint64_t i = 0; i < bitmap_size; i++) {
+        if (bitmap[i] != 0xFF) {
+            // Check if we have enough contiguous pages starting here
+            uint64_t found = 0;
+            for (int j = 0; j < 8 && found < count; j++) {
+                if (!(bitmap[i] & (1 << j))) {
+                    found++;
+                } else {
+                    break;
+                }
+            }
+            
+            if (found >= count) {
+                // Found enough contiguous pages
+                uintptr_t start_addr = (i * 8 + (8 - found)) * 4096;
+                
+                // Mark all pages as used
+                for (uint64_t k = 0; k < count; k++) {
+                    uint64_t page_idx = (start_addr / 4096) + k;
+                    uint64_t byte_idx = page_idx / 8;
+                    uint64_t bit_idx = page_idx % 8;
+                    bitmap[byte_idx] |= (1 << bit_idx);
+                    used_pages++;
+                }
+                
+                spinlock_release(&pmm_lock);
+                return PHYS_TO_VIRT(start_addr);
             }
         }
     }
