@@ -57,7 +57,7 @@ int y = get_cursor_y();
 
 ### Color Support
 
-Use the color definitions from "Valen/color.h" for consistent color management:
+Use the color definitions from "valen/color.h" for consistent color management:
 
 ```c
 #include <valen/color.h>

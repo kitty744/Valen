@@ -2,7 +2,7 @@
 
 ## Version 1.0.0 - Initial Shell Implementation
 
-- Basic shell interface with prompt "Valen >> "
+- Basic shell interface with prompt "valen >> "
 - Command processing system
 - Basic input handling
 
@@ -13,7 +13,7 @@
 - **Backspace not deleting first character**: Fixed cursor positioning logic to allow deletion of first character when cursor is at position 0
 - **Arrow keys printing characters**: Fixed keyboard handler to prevent arrow keys (0x4B, 0x4D) from being processed through ASCII mapping
 - **Character duplication on backspace/arrow keys**: Resolved cursor position conflicts between `putc()` and `redraw_line()` function
-- **Extra space after prompt**: Fixed `PROMPT_LEN` from 9 to 8 to match actual length of "Valen >> "
+- **Extra space after prompt**: Fixed `PROMPT_LEN` from 8 to 9 to match actual length of "valen >> "
 - **Invisible first character bug**: Resolved buffer management issues causing first character to not be recognized by shell
 - **Cursor size inconsistency**: Added cursor size reset (14x15) in `shell_init()` to maintain consistent cursor appearance
 
